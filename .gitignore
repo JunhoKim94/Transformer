@@ -1,0 +1,10 @@
+.vscode/*
+.idea/*
+__pycache__/*
+.ipynb_chechpoints/*
+data/*
+data.pickle
+en_corpus.pickle
+fr_corpus.pickle
+*.pt
+*.pickle
