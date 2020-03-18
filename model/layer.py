@@ -64,12 +64,15 @@ class Transformer(nn.Module):
         x = (B,S)
         trg_mask = (B, S, S_r) : triangle
         '''
+        batch = x.shape[0]
         seq = x.shape[1]
 
         #B, 1, S
         trg_pad = (x == self.padd_idx).unsqueeze(1)
         #1, S, S
-        trg_idx = (torch.tri(torch.ones(seq,seq)) == 0).unsqueeze(0)
+        #trg_idx = (torch.tri(torch.ones(seq,seq)) == 0).unsqueeze(0)
+        #B, S, S
+        trg_idx = (torch.tri(torch.ones(seq,seq)) == 0).repeat(batch, 1).view(batch, seq, seq)
 
         trg_mask = trg_pad | trg_idx
 
