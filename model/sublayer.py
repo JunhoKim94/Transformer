@@ -4,7 +4,7 @@ from model.attention import *
 import torch.nn.functional as F
 
 class Pos_Encoding(nn.Module):
-    def __init__(self, vocab_size, emb_size, max_length, dropout):
+    def __init__(self, vocab_size, emb_size, max_length, dropout, device):
         super(Pos_Encoding, self).__init__()
         '''
         PE(pos, 2i) = sin(pos/ 10000^(2i/d_model))
@@ -14,20 +14,22 @@ class Pos_Encoding(nn.Module):
         self.vocab_size = vocab_size
         self.emb_size = emb_size
         self.max_length = max_length
+        self.device =device
 
-        self.embed = nn.Embedding(vocab_size, emb_size)
+        self.embed = nn.Embedding(vocab_size, emb_size, padding_idx = 0)
         self.pos_emb = nn.Embedding(max_length, emb_size)
 
         self.dropout = nn.Dropout(dropout)
-        self.scale = torch.sqrt(torch.FloatTensor([emb_size])).cuda()
+        self.scale = torch.sqrt(torch.FloatTensor([emb_size])).to(self.device)
+        self.initialize()
 
     def initialize(self):
         for i in range(self.max_length):
             for j in range(self.emb_size):
                 if j % 2 == 0:
-                    self.pos_emb.weight.data[i, j] = torch.sin(torch.Tensor([i / (10000**(2 * j / 10))]))
+                    self.pos_emb.weight.data[i, j] = torch.sin(torch.Tensor([i / (10000**(2 * j / self.emb_size))]))
                 else:
-                    self.pos_emb.weight.data[i, j] = torch.cos(torch.Tensor([i / (10000**(2 * j / 10))]))
+                    self.pos_emb.weight.data[i, j] = torch.cos(torch.Tensor([i / (10000**(2 * j / self.emb_size))]))
         for params in self.pos_emb.parameters():
             params.requires_grad = False
 
@@ -39,7 +41,7 @@ class Pos_Encoding(nn.Module):
         seq = x.shape[1]
 
         #B, B_S
-        pos = torch.arange(0, seq).unsqueeze(0).repeat(batch,1).cuda()
+        pos = torch.arange(0, seq).unsqueeze(0).repeat(batch,1).to(self.device)
         #B, B_S, embed
         output = self.pos_emb(pos) / self.scale + self.embed(x)
         output = self.dropout(output)
@@ -75,7 +77,7 @@ class Encoding_layer(nn.Module):
         self.max_len = max_len
 
         #self.pos_enc = Pos_Encoding(vocab_size, emb_size, max_len, dropout)
-        #self.layer_norm = nn.LayerNorm(emb_size)
+        self.layer_norm = nn.LayerNorm(emb_size)
         self.multi_head =  Multi_Head(h, emb_size, dropout)
         self.fnn = Position_wise_FFN(emb_size, d_ff, dropout)
 
@@ -90,12 +92,14 @@ class Encoding_layer(nn.Module):
         output = self.multi_head(x, x ,x, src_mask)
 
         #B,S,embed
-        output = F.layer_norm(x + output)
+        #output = F.layer_norm(x + output, x.shape)
+        output = self.layer_norm(x + output)
 
         res = output
         #B,S,embed
         output = self.fnn(output)
-        output = F.layer_norm(res + output)
+        #output = F.layer_norm(res + output, x.shape)
+        output = self.layer_norm(res + output)
 
         return output
 
@@ -110,6 +114,7 @@ class Decoder_layer(nn.Module):
         self.multi_head =  Multi_Head(h,  emb_size, dropout)
         self.encoder_head = Multi_Head(h,  emb_size, dropout)
         self.fnn = Position_wise_FFN(emb_size, d_ff, dropout)
+        self.layer_norm = nn.LayerNorm(emb_size)
 
     def forward(self, x, src, trg_mask, src_mask):
         '''
@@ -121,16 +126,21 @@ class Decoder_layer(nn.Module):
         #B,S,embed
         output = self.multi_head(x, x, x, trg_mask)
         #B,S,embed
-        output = F.layer_norm(x + output)
+        #output = F.layer_norm(x + output)
+        output = self.layer_norm(x + output)
        
         res = output
+        #query = decoder, key & value = encoder
         #B,S,embed --> encoder들 (src)의 attention 이므로 srg_mask
-        output = self.encoder_head(src, src, output, src_mask)
-        output = F.layer_norm(res + output)
+        output = self.encoder_head(output, src, src, src_mask)
+        #output = F.layer_norm(res + output)
+        output = self.layer_norm(res + output)
+
 
         res = output
         #B,S,embed
         output = self.fnn(output)
-        output = F.layer_norm(res + output)
+        #output = F.layer_norm(res + output)
+        output = self.layer_norm(res + output)
 
         return output

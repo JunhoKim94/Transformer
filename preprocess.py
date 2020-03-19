@@ -69,11 +69,14 @@ def wordtoid(data, word2idx):
         train_data.append(temp)
     return train_data
 
-def padding(data):
+def padding(data, max_len):
     l = [len(s) for s in data]
     max_length = max(l)
-    if max_length > 30:
-        max_length = 30
+
+    if max_length > max_len:
+        max_length = max_len
+
+    #max_length = max_len
 
     length = []
     for s in l:

@@ -11,25 +11,25 @@ class Attention(nn.Module):
 
     def forward(self, query, key, value, mask = None):
         '''
-        query = (B, S, d_q)
-        key = (B, S, d_k)
-        value = (B, S, d_v)
+        query = (B, S2, d_q)
+        key = (B, S1, d_k)
+        value = (B, S1, d_v)
         mask = (B, Real_S, Real_S) or Triangular
         d_q = d_k = d_v
         '''
         batch_size = query.size(0)
-        seq_size = query.size(1)
+        seq_size = value.size(1)
         d_k = query.size(2)
 
-        #(B, S, S)
-        att_score = torch.bmm(query, key.transpose(1,2)) / torch.sqrt(d_k)
+        #(B, S2, S1)
+        att_score = torch.bmm(query, key.transpose(1,2)) / (d_k **0.5)
 
         if mask is not None:
-            att_score.mask_fill_(mask, -float('inf'))
+            att_score.mask_fill_(mask, -1e10)
 
         att_score = F.softmax(att_score.view(-1, seq_size), dim = 1).view(batch_size, -1, seq_size)
 
-        #(B, S, d_v)
+        #(B, S2, d_v)
         output = torch.bmm(att_score, value)
         
         return output
@@ -38,8 +38,6 @@ class Attention(nn.Module):
 class Multi_Head(nn.Module):
     def __init__(self, h, d_model, dropout):
         super(Multi_Head, self).__init__()
-        assert d_v % h != 0
-
         self.h = h
         self.d_v = d_model // h
         self.d_m = d_model
@@ -49,9 +47,9 @@ class Multi_Head(nn.Module):
         self.v_w = nn.Linear(self.d_m, self.d_m)
 
         '''
-        self.k_w = [nn.Linear(self.d_m, d_v) for _ in range(h)]
-        self.q_w = [nn.Linear(self.d_m, d_v) for _ in range(h)]
-        self.v_w = [nn.Linear(self.d_m, d_v) for _ in range(h)]
+        self.k_w = nn.ModuleList([nn.Linear(self.d_m, self.d_v) for _ in range(h)])
+        self.q_w = nn.ModuleList([nn.Linear(self.d_m, self.d_v) for _ in range(h)])
+        self.v_w = nn.ModuleList([nn.Linear(self.d_m, self.d_v) for _ in range(h)])
         
         self.d_att = nn.ModuleList([Attention() for i in range(h)])
         self.multi_head = nn.Linear(self.h * self.d_v, self.d_m)
