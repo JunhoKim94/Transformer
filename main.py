@@ -39,14 +39,14 @@ print(len(en_word2idx) , len(fr_word2idx))
 en_vocab_size = len(en_word2idx)
 fr_vocab_size = len(fr_word2idx)
 emb_size = 512
-d_ff = 1024
+d_ff = 2048
 dropout = 0.2
 max_len = 50
 h = 8
 Num = 6
 
 encoder = Encoder(en_vocab_size, emb_size , d_ff, dropout, max_len, h, Num, device)
-decoder = Decoder(fr_vocab_size, emb_size , d_ff, dropout, max_len, h, Num, device)
+decoder = Decoder(fr_vocab_size, emb_size , d_ff, dropout, max_len, h, Num / 2, device)
 model = Transformer(encoder, decoder, PAD, device)
 
 #model.load_state_dict(torch.load("./model.pt"))
@@ -102,8 +102,9 @@ for epoch in range(epochs):
             optimizer.step()
             epoch_loss += loss.item()
 
-            if iteration % 10 == 0:
+            if iteration % 500 == 0:
                 print(f"current file : {i}  |  total iteration : {sub_total}  |  iteration : {iteration}  |  Time Spend : {(time.time() - st) / 3600} hours  | loss :  { epoch_loss / (i * sub_total + iteration + 1e-5)}")
+                torch.save(model.state_dict(), "./current_iter.pt")
 
             del loss, y_pred, b_train, b_target, target
 
