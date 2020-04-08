@@ -1,65 +1,59 @@
 import numpy as np
 from tqdm import tqdm
-import torch
 import pickle
 import re
 import collections
 
-def Byte_Pair(path):
-    
-
-
-
-
-
-
-
-
-
-
-
-
-def corpus_span(path):
+def corpus_span(path, common):
     '''
     data = batch x sentence 
     '''
-    word2idx = {"PAD" : 0 ,"<BOS>" : 1, "<EOS>" : 2}
-    idx2word = {0 : "PAD", 1 : "<BOS>", 2: "<EOS>"}
+    en_word2idx = {"PAD" : 0 ,"<BOS>" : 1, "<EOS>" : 2}
+    en_idx2word = {0 : "PAD", 1 : "<BOS>", 2: "<EOS>"}
 
-    collect = collections.Counter()
-    data = []
+    de_word2idx = {"PAD" : 0 ,"<BOS>" : 1, "<EOS>" : 2}
+    de_idx2word = {0 : "PAD", 1 : "<BOS>", 2: "<EOS>"}
+
+    en_collect = collections.Counter()
+    de_collect = collections.Counter()
+
+    en_data = []
+    de_data = []
     with open(path, 'r', encoding = "utf-8") as f:
         x = f.readlines()
         total = len(x)
-        i = 0
-        j = 0
+
         for line in tqdm(x):
             line = line[:-1]
-            data.append(line)
-            line = line.split(" ")
-            collect.update(line)
+            line = line.split("\t")
 
-            i += 1
-            if i % (total // 20) == 0:
-                with open("./data/fr_data_%d.pickle"%j, "wb") as f:
-                    pickle.dump(data, f)
-                j += 1
-                data = []
+            en_data.append(line[0])
+            de_data.append(line[1])
+            
+            en_collect.update(line[0].split(" "))
+            de_collect.update(line[1].split(" "))
 
+    en_selected = en_collect.most_common(common)
+    de_selected = de_collect.most_common(common)
 
-    selected = collect.most_common(80000)
+    for word, freq in en_selected:
+        en_word2idx[word] = len(en_word2idx)
+        en_idx2word[len(en_idx2word)] = word
 
-    for word, freq in selected:
-        word2idx[word] = len(word2idx)
-        idx2word[len(idx2word)] = word
+    for word, freq in de_selected:
+        de_word2idx[word] = len(de_word2idx)
+        de_idx2word[len(de_idx2word)] = word
 
+    data = {"en_data" : (en_word2idx, en_idx2word), "de_data" : (de_word2idx, de_idx2word)}
 
-    test_data = {"word2idx" : word2idx, "idx2word" : idx2word}
+    with open("./corpus.pickle", 'wb') as f:
+        pickle.dump(data,f)
 
-    with open("./fr_corpus.pickle", 'wb') as f:
-        pickle.dump(test_data,f)
+    pair = {"en_data" : en_data, "de_data" : de_data}
+    with open("./data/split/data.pickle", "wb") as f:
+        pickle.dump(pair, f)
 
-    return word2idx, data, idx2word
+    return data, en_data, de_data
 
 def wordtoid(data, word2idx):
     '''
@@ -72,35 +66,31 @@ def wordtoid(data, word2idx):
         temp = [word2idx["<BOS>"]]
         for word in line:
             if word not in word2idx:
+                #temp.append(word2idx["<UNK>"])
                 continue
             temp.append(word2idx[word])
         temp.append(word2idx["<EOS>"])
         train_data.append(temp)
     return train_data
 
-def padding(data, max_len):
+def padding(data, length):
+    '''
+    data = [batch_seq, length]
+    '''
     l = [len(s) for s in data]
     max_length = max(l)
 
-    if max_length > max_len:
-        max_length = max_len
+    if max_length > length:
+        max_length = length
 
-    #max_length = max_len
-
-    length = []
-    for s in l:
-        if s <= max_length:
-            length += [s]
-        else:
-            length += [max_length]
-
-    new = np.zeros((len(data), max_length), dtype = np.int32)
+    batch = np.zeros((len(data), max_length), dtype = np.int32)
 
     for i in range(len(data)):
-        new[i, :length[i]] = data[i][:length[i]]
-        #new[i, -1] = length[i]
+        if l[i] > length:
+            l[i] = length
+        batch[i, :l[i]] = data[i][:l[i]]
 
-    return new
+    return batch
 
 def get_mini(data, batch):
     seed = np.random.choice(len(data), batch)
@@ -121,7 +111,7 @@ def evaluate(ret, idx2word):
     return gen
 
 
-def clean_str(string, TREC= False):
+def clean_str(string, TREC = False):
     """
     Tokenization/string cleaning for all datasets except for SST.
     Every dataset is lower cased except for TREC
@@ -142,4 +132,6 @@ def clean_str(string, TREC= False):
     return string.strip() if TREC else string.strip().lower()
 
 if __name__ == "__main__":
-    corpus_span("C:/Users/dilab/giga-fren.release2.fixed.fr")
+    data, en_data, de_data = corpus_span("./data/en-de_full.txt", 50000)
+    print(en_data)
+    print(de_data)
