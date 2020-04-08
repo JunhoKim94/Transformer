@@ -58,7 +58,6 @@ class Batch_Maker(Dataset):
         return len(self.en_data)
 
     def getitem(self, batch):
-        seed = np.random.choice(len(self.en_data), batch)
 
         sr_batch = self.get_random_sample(self.en_data, batch)
         tr_batch = self.get_random_sample(self.de_data, batch)

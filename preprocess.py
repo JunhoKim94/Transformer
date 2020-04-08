@@ -4,6 +4,26 @@ import pickle
 import re
 import collections
 
+def word_encoding(word, word2idx):
+    word = word + "</w>"
+
+    encode = []
+    while(len(word) != 0):
+        length = len(word)
+        for i in range(length - 1):
+            temp = word[:(length - i)]
+            if temp in word2idx:
+                encode.append(word2idx[temp])
+                word = word[(length - i):]
+                break
+        '''
+        if len(encode) == 0:
+            encode.append(word2idx["PAD"])
+            break
+        '''
+    return encode
+    
+
 def corpus_span(path, common):
     '''
     data = batch x sentence 
@@ -21,7 +41,6 @@ def corpus_span(path, common):
     de_data = []
     with open(path, 'r', encoding = "utf-8") as f:
         x = f.readlines()
-        total = len(x)
 
         for line in tqdm(x):
             line = line[:-1]
@@ -39,6 +58,8 @@ def corpus_span(path, common):
     for word, freq in en_selected:
         en_word2idx[word] = len(en_word2idx)
         en_idx2word[len(en_idx2word)] = word
+
+
 
     for word, freq in de_selected:
         de_word2idx[word] = len(de_word2idx)
@@ -65,12 +86,16 @@ def wordtoid(data, word2idx):
         line = line.split()
         temp = [word2idx["<BOS>"]]
         for word in line:
-            if word not in word2idx:
+
+            encode = word_encoding(word, word2idx)
+            #if word not in word2idx:
                 #temp.append(word2idx["<UNK>"])
-                continue
-            temp.append(word2idx[word])
+                #continue
+            temp += encode
+            #temp.append(word2idx[word])
         temp.append(word2idx["<EOS>"])
         train_data.append(temp)
+
     return train_data
 
 def padding(data, length):
