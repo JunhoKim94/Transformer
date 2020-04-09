@@ -3,8 +3,11 @@ from tqdm import tqdm
 import pickle
 import re
 import collections
+from utils import *
+import time
 
 def word_encoding(word, word2idx):
+    #word = word.lower()
     word = word + "</w>"
 
     encode = []
@@ -23,6 +26,21 @@ def word_encoding(word, word2idx):
         '''
     return encode
     
+def bpe_corpus(corpus, iteration):
+    vocabs, tokens = make_vocab(corpus)
+
+    iteration = 37000
+    for _ in tqdm(range(iteration), desc = "byte-pair-encoding"):
+        pairs = get_stats(vocabs)
+        best = max(pairs, key = pairs.get)
+        tokens["".join(best)] = len(tokens)
+        vocabs = merge_vocab(best, vocabs)
+
+    idx2word = dict()
+    for word, idx in tokens.items():
+        idx2word[idx] = word
+
+    return tokens, idx2word
 
 def corpus_span(path, common):
     '''
@@ -46,25 +64,32 @@ def corpus_span(path, common):
             line = line[:-1]
             line = line.split("\t")
 
+            line[0] = clean_str(line[0], True)
+            line[1] = clean_str(line[1], True)
+
             en_data.append(line[0])
             de_data.append(line[1])
             
             en_collect.update(line[0].split(" "))
             de_collect.update(line[1].split(" "))
 
-    en_selected = en_collect.most_common(common)
-    de_selected = de_collect.most_common(common)
+    en_selected = en_collect.most_common(50000)
+    de_selected = de_collect.most_common(50000)
 
+    print(len(en_selected), len(de_selected))
+
+    en_word2idx, en_idx2word = bpe_corpus(en_selected, common)
+    de_word2idx, de_idx2word = bpe_corpus(de_selected, common)
+
+    '''
     for word, freq in en_selected:
         en_word2idx[word] = len(en_word2idx)
         en_idx2word[len(en_idx2word)] = word
 
-
-
     for word, freq in de_selected:
         de_word2idx[word] = len(de_word2idx)
         de_idx2word[len(de_idx2word)] = word
-
+    '''
     data = {"en_data" : (en_word2idx, en_idx2word), "de_data" : (de_word2idx, de_idx2word)}
 
     with open("./corpus.pickle", 'wb') as f:
@@ -157,6 +182,6 @@ def clean_str(string, TREC = False):
     return string.strip() if TREC else string.strip().lower()
 
 if __name__ == "__main__":
-    data, en_data, de_data = corpus_span("./data/en-de_full.txt", 50000)
+    data, en_data, de_data = corpus_span("C:/Users/dilab/Documents/GitHub/Seq2Seq/data/en-de_full.txt", 37000)
     print(en_data)
     print(de_data)

@@ -5,6 +5,44 @@ from torch.utils.data import Dataset, DataLoader
 import torch
 from preprocess import *
 import random
+import re, collections
+
+def make_vocab(corpus):
+    vocab = dict()
+    tokens = {"<unk>" : 0, "<BOS>" : 1, "<EOS>" : 2}
+
+    for word, freq in corpus:
+        temp = ""
+        #word = word.lower()
+        for c in word:
+            temp += c + " "
+            if c not in vocab:
+                tokens[c] = len(tokens)
+        temp += "</w>"
+
+        vocab[temp] = freq
+
+    return vocab, tokens
+
+
+def get_stats(vocab):
+    pairs = collections.defaultdict(int)
+    for word, freq in vocab.items():
+        symbols = word.split()
+        for i in range(len(symbols)-1):
+            pairs[symbols[i],symbols[i+1]] += freq
+    return pairs
+
+
+def merge_vocab(pair, v_in):
+    v_out = {}
+    bigram = re.escape(' '.join(pair))
+    p = re.compile(r'(?<!\S)' + bigram + r'(?!\S)')
+    for word in v_in:
+        w_out = p.sub(''.join(pair), word)
+        v_out[w_out] = v_in[word]
+
+    return v_out
 
 
 def call_data(path):
@@ -75,3 +113,9 @@ class Batch_Maker(Dataset):
 
     def get_random_sample(self, data, batch):
         return [data[random.randint(0, len(data))] for _ in range(batch)]
+
+
+
+
+if __name__ == "__main__":
+    corpus = 10 #temporary

@@ -6,38 +6,29 @@ from preprocess import *
 from model.model import Encoder, Decoder, Transformer
 import time
 import matplotlib.pyplot as plt
+from utils import *
 
 PAD = 0
 batch = 32
 lr = 0.001
 epochs = 8
-total = 22520376
 
 print("\n ==============================> Training Start <=============================")
 device = torch.device("cuda:0" if torch.cuda.is_available() else 'cpu')
 #device = torch.device("cpu")
 print(torch.cuda.is_available())
-path = ["./en_corpus.pickle", "./fr_corpus.pickle"]
+corpus_path = "./corpus.pickle"
+data_path = "./data/split/data.pickle"
 
-def call_data(paths):
-    data = []
-    for path in paths:
-        with open(path , 'rb') as f:
-            corpus = pickle.load(f)
-            word2idx = corpus["word2idx"]
-            idx2word = corpus["idx2word"]
-        data.append((word2idx, idx2word))
+#data, en_data, de_data = corpus_span(path, 50000)
+en_word2idx, en_idx2word, de_word2idx, de_idx2word = call_data(corpus_path)
 
-    return data
+print(en_word2idx, de_word2idx)
 
-data = call_data(path)
-en_word2idx, en_idx2word = data[0]
-fr_word2idx, fr_idx2word = data[1]
-
-print(len(en_word2idx) , len(fr_word2idx))
+print(len(en_word2idx) , len(de_word2idx))
 
 en_vocab_size = len(en_word2idx)
-fr_vocab_size = len(fr_word2idx)
+de_vocab_size = len(de_word2idx)
 emb_size = 512
 d_ff = 2048
 dropout = 0.2
@@ -45,8 +36,14 @@ max_len = 50
 h = 8
 Num = 6
 
+#dataset
+dataset = Batch_Maker(data_path, en_word2idx, de_word2idx, device, max_len)
+
+total = len(dataset)
+
+#model
 encoder = Encoder(en_vocab_size, emb_size , d_ff, dropout, max_len, h, Num, device)
-decoder = Decoder(fr_vocab_size, emb_size , d_ff, dropout, max_len, h, Num / 2, device)
+decoder = Decoder(de_vocab_size, emb_size , d_ff, dropout, max_len, h, Num / 2, device)
 model = Transformer(encoder, decoder, PAD, device)
 
 #model.load_state_dict(torch.load("./model.pt"))
@@ -71,44 +68,32 @@ st = time.time()
 
 for epoch in range(epochs):
     epoch_loss = 0
-    
-    for i in range(20):
-        en_data = call_train_data("C:/Users/dilab/Documents/GitHub/Seq2Seq/data/en_data_%d.pickle"%i)
-        fr_data = call_train_data("C:/Users/dilab/Documents/GitHub/Seq2Seq/data/fr_data_%d.pickle"%i)
+    for iteration in range(total// batch):
+        #seed = np.random.choice(len(en_data), batch)
+        sr_batch, tr_batch = dataset.getitem(batch)
 
-        sub_total = len(en_data) // batch
-        #print(len(en_data), len(fr_data))
-        for iteration in range(sub_total):
-            #seed = np.random.choice(len(en_data), batch)
-            b_train = en_data[iteration * batch : (iteration + 1) * batch]
-            b_target = fr_data[iteration * batch : (iteration + 1) * batch]
+        target = tr_batch[:,1:]
+        #b_target = b_target[:,:-1]
+        target = target.contiguous().view(-1)
+        #print(b_target, target)
+        y_pred = model(sr_batch, tr_batch)
+        loss = criterion(y_pred, target)
 
-            b_train = wordtoid(b_train, en_word2idx)
-            b_train = torch.Tensor(padding(b_train, max_len)).to(torch.long).to(device)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 5)
 
-            b_target = wordtoid(b_target, fr_word2idx)
-            b_target = torch.Tensor(padding(b_target, max_len)).to(torch.long).to(device)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        epoch_loss += loss.item()
 
-            target = b_target[:,1:]
-            b_target = b_target[:,:-1]
 
-            target = target.contiguous().view(-1)
-            #print(b_target, target)
-            y_pred = model(b_train, b_target)
-            loss = criterion(y_pred, target)
+        if iteration % 500 == 0:
+            print(f"total iteration : {total // batch}  |  iteration : {iteration}  |  Time Spend : {(time.time() - st) / 3600} hours  | loss :  { epoch_loss / (iteration + 1e-5)}")
+            torch.save(model.state_dict(), "./current_iter.pt")
 
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            epoch_loss += loss.item()
+        del loss, y_pred, target
 
-            if iteration % 500 == 0:
-                print(f"current file : {i}  |  total iteration : {sub_total}  |  iteration : {iteration}  |  Time Spend : {(time.time() - st) / 3600} hours  | loss :  { epoch_loss / (i * sub_total + iteration + 1e-5)}")
-                torch.save(model.state_dict(), "./current_iter.pt")
-
-            del loss, y_pred, b_train, b_target, target
-
-    epoch_loss /= 20 * sub_total
+    epoch_loss /= (total // batch)
 
     if epoch >= 4:
         scheduler.step()
