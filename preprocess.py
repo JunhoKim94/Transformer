@@ -3,44 +3,26 @@ from tqdm import tqdm
 import pickle
 import re
 import collections
-from utils import *
+from BPE import *
 import time
 
 def word_encoding(word, word2idx):
     #word = word.lower()
     word = word + "</w>"
-
     encode = []
     while(len(word) != 0):
         length = len(word)
-        for i in range(length - 1):
+        for i in range(length):
             temp = word[:(length - i)]
             if temp in word2idx:
                 encode.append(word2idx[temp])
                 word = word[(length - i):]
                 break
-        '''
-        if len(encode) == 0:
-            encode.append(word2idx["PAD"])
+
+        if length == len(word):
             break
-        '''
+        
     return encode
-    
-def bpe_corpus(corpus, iteration):
-    vocabs, tokens = make_vocab(corpus)
-
-    iteration = 37000
-    for _ in tqdm(range(iteration), desc = "byte-pair-encoding"):
-        pairs = get_stats(vocabs)
-        best = max(pairs, key = pairs.get)
-        tokens["".join(best)] = len(tokens)
-        vocabs = merge_vocab(best, vocabs)
-
-    idx2word = dict()
-    for word, idx in tokens.items():
-        idx2word[idx] = word
-
-    return tokens, idx2word
 
 def corpus_span(path, common):
     '''
@@ -103,27 +85,21 @@ def corpus_span(path, common):
 
 def wordtoid(data, word2idx):
     '''
-    data = (B, sen)
+    data = (1, sen)
     '''
-    train_data = []
+    data = data.split()
+    temp = [word2idx["<BOS>"]]
+    for word in data:
+        encode = word_encoding(word, word2idx)
+        if encode == None:
+            continue
+        temp += encode
+        #temp.append(word2idx[word])
+    temp.append(word2idx["<EOS>"])
 
-    for line in data:
-        line = line.split()
-        temp = [word2idx["<BOS>"]]
-        for word in line:
+    return temp
 
-            encode = word_encoding(word, word2idx)
-            #if word not in word2idx:
-                #temp.append(word2idx["<UNK>"])
-                #continue
-            temp += encode
-            #temp.append(word2idx[word])
-        temp.append(word2idx["<EOS>"])
-        train_data.append(temp)
-
-    return train_data
-
-def padding(data, length):
+def padding(data, length, batch):
     '''
     data = [batch_seq, length]
     '''
@@ -133,7 +109,7 @@ def padding(data, length):
     if max_length > length:
         max_length = length
 
-    batch = np.zeros((len(data), max_length), dtype = np.int32)
+    batch = np.zeros((batch, max_length), dtype = np.int32)
 
     for i in range(len(data)):
         if l[i] > length:

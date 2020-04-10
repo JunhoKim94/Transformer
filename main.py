@@ -7,6 +7,7 @@ from model.model import Encoder, Decoder, Transformer
 import time
 import matplotlib.pyplot as plt
 from utils import *
+from loader import *
 
 PAD = 0
 batch = 32
@@ -14,8 +15,8 @@ lr = 0.001
 epochs = 8
 
 print("\n ==============================> Training Start <=============================")
-device = torch.device("cuda:0" if torch.cuda.is_available() else 'cpu')
-#device = torch.device("cpu")
+#device = torch.device("cuda:0" if torch.cuda.is_available() else 'cpu')
+device = torch.device("cpu")
 print(torch.cuda.is_available())
 corpus_path = "./corpus.pickle"
 data_path = "./data/split/data.pickle"
@@ -23,7 +24,10 @@ data_path = "./data/split/data.pickle"
 #data, en_data, de_data = corpus_span(path, 50000)
 en_word2idx, en_idx2word, de_word2idx, de_idx2word = call_data(corpus_path)
 
-print(en_word2idx, de_word2idx)
+en_word2idx["</w>"] = len(en_word2idx)
+en_idx2word[len(en_idx2word)] = "</w>"
+de_word2idx["</w>"] = len(de_word2idx)
+de_idx2word[len(de_idx2word)] = "</w>"
 
 print(len(en_word2idx) , len(de_word2idx))
 
@@ -32,18 +36,20 @@ de_vocab_size = len(de_word2idx)
 emb_size = 512
 d_ff = 2048
 dropout = 0.2
-max_len = 50
+max_len = 100
 h = 8
 Num = 6
+max_token = 2500
 
 #dataset
-dataset = Batch_Maker(data_path, en_word2idx, de_word2idx, device, max_len)
+dataset = Basedataset(data_path, en_word2idx, de_word2idx)
+dataloader = Batch_loader(dataset, device, max_len, max_token)
 
 total = len(dataset)
 
 #model
 encoder = Encoder(en_vocab_size, emb_size , d_ff, dropout, max_len, h, Num, device)
-decoder = Decoder(de_vocab_size, emb_size , d_ff, dropout, max_len, h, Num / 2, device)
+decoder = Decoder(de_vocab_size, emb_size , d_ff, dropout, max_len, h, Num // 2, device)
 model = Transformer(encoder, decoder, PAD, device)
 
 #model.load_state_dict(torch.load("./model.pt"))
@@ -58,22 +64,18 @@ scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer=optimizer, lr_lambda=lam
 model.train()
 model.to(device)
 
-def call_train_data(path):
-    with open(path, "rb") as f:
-        data = pickle.load(f)
-    return data
-
 best_loss = 1e5
 st = time.time()
 
 for epoch in range(epochs):
     epoch_loss = 0
     for iteration in range(total// batch):
-        #seed = np.random.choice(len(en_data), batch)
-        sr_batch, tr_batch = dataset.getitem(batch)
+
+        sr_batch, tr_batch = dataloader.get_batch()
 
         target = tr_batch[:,1:]
-        #b_target = b_target[:,:-1]
+        tr_batch = tr_batch[:,:-1]
+
         target = target.contiguous().view(-1)
         #print(b_target, target)
         y_pred = model(sr_batch, tr_batch)
