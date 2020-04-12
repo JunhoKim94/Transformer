@@ -64,6 +64,11 @@ class Batch_loader:
             sr_batch.append(src)
             tr_batch.append(trg)
 
+        if max_src > self.max_len:
+            max_src = self.max_len
+        elif max_trg > self.max_len:
+            max_trg = self.max_len
+
         sr_batch = padding(sr_batch, max_src, sen_len)
         tr_batch = padding(tr_batch, max_trg, sen_len)
         #print(sr_batch.shape, tr_batch.shape, sen_len)
