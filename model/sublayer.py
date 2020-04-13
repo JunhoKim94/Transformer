@@ -20,15 +20,16 @@ class Pos_Encoding(nn.Module):
         self.pos_emb = nn.Embedding(max_length, emb_size)
 
         self.dropout = nn.Dropout(dropout)
-        self.scale = torch.sqrt(torch.FloatTensor([emb_size])).to(self.device)
+        #self.scale = torch.sqrt(torch.FloatTensor([emb_size])).to(self.device)
         self.initialize()
 
     def initialize(self):
+        #parameter 말고 tensor나 np 써야 할듯 (gpu 효율)
         for i in range(self.max_length):
             for j in range(self.emb_size):
                 if j % 2 == 0:
                     self.pos_emb.weight.data[i, j] = torch.sin(torch.Tensor([i / (10000**(2 * j / self.emb_size))]))
-                else:
+                elif j % 2 == 1:
                     self.pos_emb.weight.data[i, j] = torch.cos(torch.Tensor([i / (10000**(2 * j / self.emb_size))]))
         for params in self.pos_emb.parameters():
             params.requires_grad = False
@@ -43,9 +44,10 @@ class Pos_Encoding(nn.Module):
         #B, B_S
         pos = torch.arange(0, seq).unsqueeze(0).repeat(batch,1).to(self.device)
         #B, B_S, embed
-        output = self.pos_emb(pos) / self.scale + self.embed(x)
+        output = self.pos_emb(pos) + self.embed(x)
         output = self.dropout(output)
-
+        
+        
         return output
 
 class Position_wise_FFN(nn.Module):
@@ -54,18 +56,24 @@ class Position_wise_FFN(nn.Module):
         self.emb_size = emb_size
         self.d_ff = d_ff
 
+        self.layer_norm = nn.LayerNorm(emb_size, eps = 1e-6)
+
         self.linear = nn.Sequential(
             nn.Linear(emb_size, self.d_ff),
             nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(self.d_ff, emb_size)
+            nn.Linear(self.d_ff, emb_size),
+            nn.Dropout(dropout)
         )
     
     def forward(self, x):
         '''
         x = (B, S, embed_size = d_model)
         '''
-        return self.linear(x)
+        res = x
+        out = self.linear(x)
+        out = self.layer_norm(out + res)
+
+        return out
 
 
 class Encoding_layer(nn.Module):
@@ -77,7 +85,6 @@ class Encoding_layer(nn.Module):
         self.max_len = max_len
 
         #self.pos_enc = Pos_Encoding(vocab_size, emb_size, max_len, dropout)
-        self.layer_norm = nn.LayerNorm(emb_size)
         self.multi_head =  Multi_Head(h, emb_size, dropout)
         self.fnn = Position_wise_FFN(emb_size, d_ff, dropout)
 
@@ -92,14 +99,7 @@ class Encoding_layer(nn.Module):
         output = self.multi_head(x, x ,x, src_mask)
 
         #B,S,embed
-        #output = F.layer_norm(x + output, x.shape)
-        output = self.layer_norm(x + output)
-
-        res = output
-        #B,S,embed
         output = self.fnn(output)
-        #output = F.layer_norm(res + output, x.shape)
-        output = self.layer_norm(res + output)
 
         return output
 
@@ -114,7 +114,7 @@ class Decoder_layer(nn.Module):
         self.multi_head =  Multi_Head(h,  emb_size, dropout)
         self.encoder_head = Multi_Head(h,  emb_size, dropout)
         self.fnn = Position_wise_FFN(emb_size, d_ff, dropout)
-        self.layer_norm = nn.LayerNorm(emb_size)
+        self.layer_norm = nn.LayerNorm(emb_size, eps = 1e-6)
 
     def forward(self, x, src, trg_mask, src_mask):
         '''
@@ -125,22 +125,12 @@ class Decoder_layer(nn.Module):
 
         #B,S,embed
         output = self.multi_head(x, x, x, trg_mask)
-        #B,S,embed
-        #output = F.layer_norm(x + output)
-        output = self.layer_norm(x + output)
-       
-        res = output
+
         #query = decoder, key & value = encoder
-        #B,S,embed --> encoder들 (src)의 attention 이므로 srg_mask
+        #B,S,embed --> encoder들 (src)의 attention 이므로 src_mask
         output = self.encoder_head(output, src, src, src_mask)
-        #output = F.layer_norm(res + output)
-        output = self.layer_norm(res + output)
 
-
-        res = output
         #B,S,embed
         output = self.fnn(output)
-        #output = F.layer_norm(res + output)
-        output = self.layer_norm(res + output)
 
         return output

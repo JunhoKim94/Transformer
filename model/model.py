@@ -105,6 +105,8 @@ class Transformer(nn.Module):
         src_mask = self.gen_src_mask(src)
         trg_mask = self.gen_trg_mask(trg)
 
+        #print(src_mask.shape , trg_mask.shape)
+
         enc_src = self.encoder(src, src_mask)
         output = self.decoder(trg, enc_src, src_mask, trg_mask)
 
@@ -116,3 +118,7 @@ class Transformer(nn.Module):
 
     def inference(self,x):
         print(0)
+        '''
+        x  = (B, S_source)
+        return (B, S_target)
+        '''

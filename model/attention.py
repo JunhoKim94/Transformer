@@ -11,9 +11,9 @@ class Attention(nn.Module):
 
     def forward(self, query, key, value, mask = None):
         '''
-        query = (B, S2, d_q)
-        key = (B, S1, d_k)
-        value = (B, S1, d_v)
+        query = (B, h, S2, d_q)
+        key = (B, h, S1, d_k)
+        value = (B, h, S1, d_v)
         mask = (B, Real_S, Real_S) or Triangular
         d_q = d_k = d_v
         '''
@@ -21,16 +21,18 @@ class Attention(nn.Module):
         seq_size = value.size(1)
         d_k = query.size(2)
 
-        #(B, S2, S1)
-        att_score = torch.bmm(query, key.transpose(1,2)) / (d_k **0.5)
+        #(B, h, S2, S1)
+        att_score = torch.matmul(query / (d_k ** 0.5), key.transpose(2,3))
 
         if mask is not None:
-            att_score.mask_fill_(mask, -1e10)
+            att_score.masked_fill(mask, -1e10)
+            #print(att_score)
 
-        att_score = F.softmax(att_score.view(-1, seq_size), dim = 1).view(batch_size, -1, seq_size)
-
-        #(B, S2, d_v)
-        output = torch.bmm(att_score, value)
+        #(B, h, S2, S1)
+        att_score = F.softmax(att_score, dim = -1)
+        #print(att_score[0])
+        #(B, h, S2, d_v)
+        output = torch.matmul(att_score, value)
         
         return output
 
@@ -41,18 +43,17 @@ class Multi_Head(nn.Module):
         self.h = h
         self.d_v = d_model // h
         self.d_m = d_model
-        '''
-        self.k_w = nn.Linear(self.d_m, self.d_m)
-        self.q_w = nn.Linear(self.d_m, self.d_m)
-        self.v_w = nn.Linear(self.d_m, self.d_m)
 
-        '''
-        self.k_w = nn.ModuleList([nn.Linear(self.d_m, self.d_v) for _ in range(h)])
-        self.q_w = nn.ModuleList([nn.Linear(self.d_m, self.d_v) for _ in range(h)])
-        self.v_w = nn.ModuleList([nn.Linear(self.d_m, self.d_v) for _ in range(h)])
         
-        self.d_att = nn.ModuleList([Attention() for i in range(h)])
-        self.multi_head = nn.Linear(self.h * self.d_v, self.d_m)
+        self.k_w = nn.Linear(self.d_m, self.d_m, bias = False)
+        self.q_w = nn.Linear(self.d_m, self.d_m, bias = False)
+        self.v_w = nn.Linear(self.d_m, self.d_m, bias = False)
+
+        self.layer_norm = nn.LayerNorm(self.d_m, eps = 1e-6)
+        
+
+        self.d_att = Attention()
+        self.multi_head = nn.Linear(self.h * self.d_v, self.d_m, bias = False)
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, q, k, v, mask = None):
@@ -62,22 +63,29 @@ class Multi_Head(nn.Module):
         '''
         batch = k.shape[0]
         seq = k.shape[1]
+        len_q, len_k, len_v = q.size(1), k.size(1), v.size(1)
 
-        #B,S,d_v
-        key = [f(k) for f in self.k_w]
-        query = [f(q) for f in self.q_w]
-        value = [f(v) for f in self.v_w]
-        '''
-        #B,S,d_m
-        key = self.k_w(x)
-        query = self.q_w(x)
-        value = self.v_w(x)
-        '''
-        output = [att(query[i], key[i], value[i]) for i, att in enumerate(self.d_att)]
+        res = q
+        #q = self.layer_norm(q)
+
+        #B,S,d_m --> B, S ,h, d_v
+        key = self.k_w(k).view(batch, len_k, self.h, self.d_v)
+        query = self.q_w(q).view(batch, len_q, self.h, self.d_v)
+        value = self.v_w(v).view(batch, len_v, self.h, self.d_v)
         
-        #B, S, d_v * h
-        output = torch.cat(output, 2)
+        key, query, value = key.transpose(1,2), query.transpose(1,2), value.transpose(1,2)
+        
+        if mask is not None:
+            mask = mask.unsqueeze(1)
+
+        output = self.d_att(query, key, value, mask)
+
+        #B,h,S2,d_v --> B,S2,h*d_v
+        output = output.transpose(1,2).contiguous().view(batch, len_q, -1)
+
         #B, S, d_model
         output = self.multi_head(output)
+        output = self.layer_norm(res + output)
+        output = self.dropout(output)
 
         return output

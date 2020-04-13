@@ -52,7 +52,7 @@ class Batch_loader:
         max_src, max_trg, sen_len = 0, 0, 0
         sr_batch, tr_batch = [],[]
         while(1):
-            seed = random.randint(0, length)
+            seed = random.randint(0, length - 1)
             src, trg = self.dataset[seed]
             
             sen_len += 1
@@ -66,7 +66,8 @@ class Batch_loader:
 
         if max_src > self.max_len:
             max_src = self.max_len
-        elif max_trg > self.max_len:
+        
+        if max_trg > self.max_len:
             max_trg = self.max_len
 
         sr_batch = padding(sr_batch, max_src, sen_len)

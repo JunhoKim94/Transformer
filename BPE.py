@@ -3,9 +3,6 @@ import torch
 import torch.nn as nn
 import pickle
 from preprocess import *
-from model.model import Encoder, Decoder, Transformer
-import time
-import matplotlib.pyplot as plt
 from utils import *
 
 def make_vocab(corpus):

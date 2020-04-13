@@ -20,19 +20,22 @@ def call_train_data(path):
         data = pickle.load(f)
     return data
 
-def evalutate(data, model, idx2word):
-
+def evalutate(dataloader, model):
     model.eval()
-    ret, attn = model.generate(data, 15, None)
-    attn = np.array(attn.to("cpu").detach())
-    plt.imshow(attn[0])
-    plt.show()
-    gen = []
-    for line in ret:
-        temp = []
-        for word in line:
-            if word.item() not in idx2word:
-                continue
-            temp += [idx2word[word.item()]]
-        gen.append(temp)
-    return gen
+    total_loss = 0.
+    criterion = torch.nn.CrossEntropyLoss()
+
+    with torch.no_grad():
+        sr_batch , tr_batch = dataloader.get_batch()
+
+        target = tr_batch[:,1:]
+        tr_batch = tr_batch[:,:-1]
+
+        target = target.contiguous().view(-1)
+        #print(b_target, target)
+        y_pred = model(sr_batch, tr_batch)
+        loss = criterion(y_pred, target)
+        loss = loss * len(sr_batch)
+
+    return total_loss / len(dataloader)
+    
