@@ -39,7 +39,7 @@ class Batch_loader:
         self.device =device
         self.max_len = max_len
         self.max_token = max_token
-
+        #random.seed(19941017)
 
     def __len__(self):
         return len(self.dataset)
@@ -59,6 +59,7 @@ class Batch_loader:
             max_src = len(src) if max_src < len(src) else max_src
             max_trg = len(trg) if max_trg < len(trg) else max_trg
 
+            #if there are so many tokens in one sentence --> break with empty batch
             if (max_src * sen_len > self.max_token) | (max_trg * sen_len > self.max_token):
                 break
             sr_batch.append(src)

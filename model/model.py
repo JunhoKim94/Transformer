@@ -59,6 +59,9 @@ class Transformer(nn.Module):
         self.padd_idx = padd_idx
         self.device = device
 
+        self.BOS = 1
+        self.EOS = 2
+
         emb = self.encoder.emb_size
         out_vocab = self.decoder.vocab_size
 
@@ -116,9 +119,33 @@ class Transformer(nn.Module):
 
         return output
 
-    def inference(self,x):
-        print(0)
+    def inference(self,src, max_seq):
         '''
         x  = (B, S_source)
         return (B, S_target)
         '''
+
+        #in order to paper, max_seq = src seq + 300
+        max_seq = src.size(1)
+
+
+        batch = src.size(0)
+        output = torch.zeros((batch, max_seq)).to(torch.long).to(self.device)
+        output[:,0] = self.BOS
+
+        src_mask = self.gen_src_mask(src)
+        enc_src = self.encoder(src, src_mask)
+
+
+        for j in range(batch):
+            for i in range(1,max_seq):
+                trg_mask = self.gen_trg_mask(output[j,:])
+
+                #(B,S,V)
+                out = self.decoder(output, enc_src, src_mask, trg_mask)
+                out = out[j,i,:].squeeze(1)
+                _, pred = torch.topk(out, 1, dim = 1)
+                
+                output[j,i] = pred.squeeze(1)
+            
+        return output.detach()

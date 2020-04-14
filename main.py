@@ -50,27 +50,30 @@ total = len(dataset)
 #model
 encoder = Encoder(en_vocab_size, emb_size , d_ff, dropout, max_len, h, Num, device)
 decoder = Decoder(de_vocab_size, emb_size , d_ff, dropout, max_len, h, Num // 2, device)
-model = Transformer(encoder, decoder, PAD, device)
+model = Transformer(encoder, decoder, PAD, device).to(device)
 
-#model.load_state_dict(torch.load("./current_step.pt"))
+model.load_state_dict(torch.load("./current_step.pt"))
 criterion = nn.CrossEntropyLoss()
 #optimizer = torch.optim.SGD(model.parameters(), lr = lr)
 optimizer = torch.optim.Adam(model.parameters(), lr = lr, betas = (0.9, 0.98), eps = 1e-9)
 #torch.nn.utils.clip_grad_norm_(model.parameters(), 5)
 
 #d_model ** -0.5 
-scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer=optimizer, lr_lambda=lambda epoch: 0.95**epoch)
+scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer = optimizer, lr_lambda = lambda epoch : 0.95**epoch)
 
-model.train()
-model.to(device)
+test_dataset = Basedataset("./data/split/test.pickle", en_word2idx, de_word2idx)
+test_loader = Batch_loader(test_dataset, device, max_len, max_token)
 
 best_loss = 1e5
 st = time.time()
 
-
 step_loss = 0
 avg_batch = 0
-for step in range(1, steps+1):
+avg_src_seq = 0
+avg_trg_seq = 0
+start = 100000
+for step in range(start + 1, start + steps+1):
+    model.train()
 
     for param_group in optimizer.param_groups:
         param_group['lr'] = emb_size**(-0.5) * min(step**(-0.5), step * (warm_up**(-1.5)))
@@ -93,13 +96,20 @@ for step in range(1, steps+1):
     optimizer.step()
     step_loss += loss.item()
     avg_batch += len(sr_batch)
+    avg_src_seq += sr_batch.size(1)
+    avg_trg_seq += tr_batch.size(1)
 
     if step % 1000 == 0:
-        #print(sr_batch, tr_batch)
-        #print(model.parameters)
-        print(f"total step : {steps}  |  curr_step : {step}  |  Time Spend : {(time.time() - st) / 3600} hours  | loss :  { step_loss / (step + 1e-5)} | learning_rate : {lr} | avg_batch : {avg_batch / (step + 1e-5)}")
+        d = step + 1e-5 - start
+        print(f"total step : {steps + start}  |  curr_step : {step}  |  Time Spend : {(time.time() - st) / 3600} hours  | loss :  { step_loss / d} | lr : {lr} | avg_batch : {int(avg_batch / d)} | avg_src_seq : {int(avg_src_seq / d)} | avg_trg_seq : {int(avg_trg_seq / d)}")
 
         if step % 2000 == 0:
+            model.eval()
+            src, trg = test_loader.get_batch()
+            pred = model.inference(src, 10)
+            score = get_bleu(pred, trg)
+            
+            print(f"bleu score : {score}")
             torch.save(model.state_dict(), "./current_step.pt")
 
         if best_loss > step_loss:
@@ -113,31 +123,3 @@ for step in range(1, steps+1):
         #evaluate(test, idx2word)
         #ret = model.generate(test, 10, None, 5)
         #evaluate(ret, idx2word)
-
-'''
-en_test = call_train_data("./data/en_data_3.pickle")
-en_test = en_test[20 : 40]
-en_test = wordtoid(en_test, en_word2idx)
-en_test = torch.Tensor(padding(en_test, max_len)).to(torch.long).to(device)
-
-def evalutate(data, model, idx2word):
-
-    model.load_state_dict(torch.load("./model.pt"))
-    model.eval()
-    ret, attn = model.generate(data, 15, None)
-    attn = np.array(attn.to("cpu").detach())
-    plt.imshow(attn[0])
-    plt.show()
-    gen = []
-    for line in ret:
-        temp = []
-        for word in line:
-            if word.item() not in idx2word:
-                continue
-            temp += [idx2word[word.item()]]
-        gen.append(temp)
-    return gen
-
-gen = evalutate(en_test, model, fr_idx2word)
-print(gen)
-'''

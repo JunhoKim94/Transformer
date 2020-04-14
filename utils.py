@@ -5,6 +5,7 @@ import torch
 from preprocess import *
 import random
 import re, collections
+import nltk.translate.bleu_score as bleu
 
 def call_data(path):
 
@@ -38,4 +39,20 @@ def evalutate(dataloader, model):
         loss = loss * len(sr_batch)
 
     return total_loss / len(dataloader)
+
+def get_bleu(pred, trg):
+    '''
+    pred = (B, S)
+    trg = (B, S)
+    '''
+    pred = pred.cpu().numpy()
+    trg = trg.cpu().numpy()
+    batch = pred.shape[0]
+
+    cc = bleu.SmoothingFunction()
     
+    score = 0
+    for p,t in zip(pred, trg):
+        score += bleu.sentence_bleu([p],t, smoothing_function= cc.method1)
+
+    return score / batch

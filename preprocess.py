@@ -55,6 +55,7 @@ def corpus_span(path, common):
             en_collect.update(line[0].split(" "))
             de_collect.update(line[1].split(" "))
 
+    
     en_selected = en_collect.most_common(50000)
     de_selected = de_collect.most_common(50000)
 
@@ -63,22 +64,13 @@ def corpus_span(path, common):
     en_word2idx, en_idx2word = bpe_corpus(en_selected, common)
     de_word2idx, de_idx2word = bpe_corpus(de_selected, common)
 
-    '''
-    for word, freq in en_selected:
-        en_word2idx[word] = len(en_word2idx)
-        en_idx2word[len(en_idx2word)] = word
-
-    for word, freq in de_selected:
-        de_word2idx[word] = len(de_word2idx)
-        de_idx2word[len(de_idx2word)] = word
-    '''
     data = {"en_data" : (en_word2idx, en_idx2word), "de_data" : (de_word2idx, de_idx2word)}
 
     with open("./corpus.pickle", 'wb') as f:
         pickle.dump(data,f)
-
+    
     pair = {"en_data" : en_data, "de_data" : de_data}
-    with open("./data/split/data.pickle", "wb") as f:
+    with open("./data/split/test.pickle", "wb") as f:
         pickle.dump(pair, f)
 
     return data, en_data, de_data
@@ -104,6 +96,10 @@ def padding(data, length, batch):
     data = [batch_seq, length]
     '''
     l = [len(s) for s in data]
+    if len(l) == 0:
+        print(data)
+        return np.zeros((1, 10), dtype= np.int32)
+
     max_length = max(l)
 
     if max_length > length:
@@ -158,6 +154,6 @@ def clean_str(string, TREC = False):
     return string.strip() if TREC else string.strip().lower()
 
 if __name__ == "__main__":
-    data, en_data, de_data = corpus_span("C:/Users/dilab/Documents/GitHub/Seq2Seq/data/en-de_full.txt", 37000)
+    data, en_data, de_data = corpus_span("C:/Users/dilab/Documents/GitHub/Seq2Seq/data/en-de_test.txt", 37000)
     print(en_data)
     print(de_data)
