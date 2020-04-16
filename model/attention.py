@@ -25,9 +25,9 @@ class Attention(nn.Module):
         att_score = torch.matmul(query / (d_k ** 0.5), key.transpose(2,3))
 
         if mask is not None:
-            att_score.masked_fill(mask, -1e10)
-            #print(att_score)
+            att_score = att_score.masked_fill(mask, -1e8)
 
+        #print(att_score)
         #(B, h, S2, S1)
         att_score = F.softmax(att_score, dim = -1)
         #print(att_score[0])

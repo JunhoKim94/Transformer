@@ -11,7 +11,7 @@ from loader import *
 
 PAD = 0
 lr = 0.0025
-steps = 100000
+steps = 300000
 warm_up = 8000
 
 print("\n ==============================> Training Start <=============================")
@@ -52,14 +52,12 @@ encoder = Encoder(en_vocab_size, emb_size , d_ff, dropout, max_len, h, Num, devi
 decoder = Decoder(de_vocab_size, emb_size , d_ff, dropout, max_len, h, Num // 2, device)
 model = Transformer(encoder, decoder, PAD, device).to(device)
 
-model.load_state_dict(torch.load("./current_step.pt"))
+#model.load_state_dict(torch.load("./current_step.pt"))
 criterion = nn.CrossEntropyLoss()
-#optimizer = torch.optim.SGD(model.parameters(), lr = lr)
 optimizer = torch.optim.Adam(model.parameters(), lr = lr, betas = (0.9, 0.98), eps = 1e-9)
-#torch.nn.utils.clip_grad_norm_(model.parameters(), 5)
 
 #d_model ** -0.5 
-scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer = optimizer, lr_lambda = lambda epoch : 0.95**epoch)
+#scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer = optimizer, lr_lambda = lambda epoch : 0.95**epoch)
 
 test_dataset = Basedataset("./data/split/test.pickle", en_word2idx, de_word2idx)
 test_loader = Batch_loader(test_dataset, device, max_len, max_token)
@@ -71,12 +69,12 @@ step_loss = 0
 avg_batch = 0
 avg_src_seq = 0
 avg_trg_seq = 0
-start = 100000
+start = 0
 for step in range(start + 1, start + steps+1):
     model.train()
 
     for param_group in optimizer.param_groups:
-        param_group['lr'] = emb_size**(-0.5) * min(step**(-0.5), step * (warm_up**(-1.5)))
+        param_group['lr'] =  emb_size**(-0.5) * min(step**(-0.5), step * (warm_up**(-1.5))) 
         lr = param_group['lr']
 
     sr_batch, tr_batch = dataloader.get_batch()
@@ -84,9 +82,10 @@ for step in range(start + 1, start + steps+1):
     target = tr_batch[:,1:]
     tr_batch = tr_batch[:,:-1]
 
-    target = target.contiguous().view(-1)
+    #target = target.contiguous().view(-1)
     #print(b_target, target)
     y_pred = model(sr_batch, tr_batch)
+    y_pred = y_pred.transpose(1,2)
     loss = criterion(y_pred, target)
 
     #torch.nn.utils.clip_grad_norm_(model.parameters(), 5)

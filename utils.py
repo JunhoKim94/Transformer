@@ -53,6 +53,8 @@ def get_bleu(pred, trg):
     
     score = 0
     for p,t in zip(pred, trg):
-        score += bleu.sentence_bleu([p],t, smoothing_function= cc.method1)
+        p = p[p != 0]
+        t = t[t != 0]
+        score += bleu.sentence_bleu([t],p, smoothing_function= cc.method1)
 
     return score / batch

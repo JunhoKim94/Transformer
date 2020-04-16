@@ -14,7 +14,7 @@ class Pos_Encoding(nn.Module):
         self.vocab_size = vocab_size
         self.emb_size = emb_size
         self.max_length = max_length
-        self.device =device
+        self.device = device
 
         self.embed = nn.Embedding(vocab_size, emb_size, padding_idx = 0)
         self.pos_emb = nn.Embedding(max_length, emb_size)

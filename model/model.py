@@ -92,8 +92,8 @@ class Transformer(nn.Module):
         #B, S, S
         trg_idx = (torch.tril(torch.ones(seq,seq)) == 0).repeat(batch, 1).view(batch, seq, seq).to(self.device)
 
-
         trg_mask = trg_pad | trg_idx
+        #print(trg_mask)
 
         return trg_mask
 
@@ -113,8 +113,7 @@ class Transformer(nn.Module):
         enc_src = self.encoder(src, src_mask)
         output = self.decoder(trg, enc_src, src_mask, trg_mask)
 
-
-        output = output.view(batch * seq , -1)
+        #output = output.view(batch * seq , -1)
         output = self.output(output)
 
         return output
@@ -128,7 +127,6 @@ class Transformer(nn.Module):
         #in order to paper, max_seq = src seq + 300
         max_seq = src.size(1)
 
-
         batch = src.size(0)
         output = torch.zeros((batch, max_seq)).to(torch.long).to(self.device)
         output[:,0] = self.BOS
@@ -136,16 +134,16 @@ class Transformer(nn.Module):
         src_mask = self.gen_src_mask(src)
         enc_src = self.encoder(src, src_mask)
 
+        for i in range(1,max_seq):
+            trg_mask = self.gen_trg_mask(output)
 
-        for j in range(batch):
-            for i in range(1,max_seq):
-                trg_mask = self.gen_trg_mask(output[j,:])
+            #(B,S,V)
+            out = self.decoder(output, enc_src, src_mask, trg_mask)
+            out = self.output(out)
 
-                #(B,S,V)
-                out = self.decoder(output, enc_src, src_mask, trg_mask)
-                out = out[j,i,:].squeeze(1)
-                _, pred = torch.topk(out, 1, dim = 1)
-                
-                output[j,i] = pred.squeeze(1)
+            out = out[:,i,:]
+            _, pred = torch.topk(F.softmax(out), 1, dim = 1)
+            
+            output[:,i] = pred.squeeze(1)
             
         return output.detach()
