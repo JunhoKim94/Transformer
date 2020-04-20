@@ -18,7 +18,7 @@ class Attention(nn.Module):
         d_q = d_k = d_v
         '''
         batch_size = query.size(0)
-        seq_size = value.size(1)
+        seq_size = value.size(2)
         d_k = query.size(2)
 
         #(B, h, S2, S1)
@@ -34,7 +34,7 @@ class Attention(nn.Module):
         #(B, h, S2, d_v)
         output = torch.matmul(att_score, value)
         
-        return output
+        return output, att_score
 
         
 class Multi_Head(nn.Module):
@@ -45,15 +45,15 @@ class Multi_Head(nn.Module):
         self.d_m = d_model
 
         
-        self.k_w = nn.Linear(self.d_m, self.d_m, bias = False)
-        self.q_w = nn.Linear(self.d_m, self.d_m, bias = False)
-        self.v_w = nn.Linear(self.d_m, self.d_m, bias = False)
+        self.k_w = nn.Linear(self.d_m, self.d_m)
+        self.q_w = nn.Linear(self.d_m, self.d_m)
+        self.v_w = nn.Linear(self.d_m, self.d_m)
 
         self.layer_norm = nn.LayerNorm(self.d_m, eps = 1e-6)
         
 
         self.d_att = Attention()
-        self.multi_head = nn.Linear(self.h * self.d_v, self.d_m, bias = False)
+        self.multi_head = nn.Linear(self.h * self.d_v, self.d_m)
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, q, k, v, mask = None):
@@ -75,10 +75,11 @@ class Multi_Head(nn.Module):
         
         key, query, value = key.transpose(1,2), query.transpose(1,2), value.transpose(1,2)
         
+        #(B,S,S)
         if mask is not None:
             mask = mask.unsqueeze(1)
 
-        output = self.d_att(query, key, value, mask)
+        output, att_score = self.d_att(query, key, value, mask)
 
         #B,h,S2,d_v --> B,S2,h*d_v
         output = output.transpose(1,2).contiguous().view(batch, len_q, -1)
@@ -88,4 +89,4 @@ class Multi_Head(nn.Module):
         output = self.layer_norm(res + output)
         output = self.dropout(output)
 
-        return output
+        return output, att_score

@@ -12,7 +12,7 @@ from loader import *
 PAD = 0
 lr = 0.0025
 steps = 300000
-warm_up = 8000
+warm_up = 12000
 
 print("\n ==============================> Training Start <=============================")
 device = torch.device("cuda:0" if torch.cuda.is_available() else 'cpu')
@@ -30,6 +30,7 @@ de_word2idx["</w>"] = len(de_word2idx)
 de_idx2word[len(de_idx2word)] = "</w>"
 
 print(len(en_word2idx) , len(de_word2idx))
+print(len(en_idx2word) , len(de_idx2word))
 
 en_vocab_size = len(en_word2idx)
 de_vocab_size = len(de_word2idx)
@@ -39,7 +40,7 @@ dropout = 0.2
 max_len = 300
 h = 8
 Num = 6
-max_token = 2500
+max_token = 2800
 
 #dataset
 dataset = Basedataset(data_path, en_word2idx, de_word2idx)
@@ -62,6 +63,15 @@ optimizer = torch.optim.Adam(model.parameters(), lr = lr, betas = (0.9, 0.98), e
 test_dataset = Basedataset("./data/split/test.pickle", en_word2idx, de_word2idx)
 test_loader = Batch_loader(test_dataset, device, max_len, max_token)
 
+
+'''
+model.eval()
+src, trg = test_loader.get_batch()
+pred = model.inference(src, 10)
+score = get_bleu(pred, trg, de_idx2word)
+print(score)
+'''
+
 best_loss = 1e5
 st = time.time()
 
@@ -74,7 +84,7 @@ for step in range(start + 1, start + steps+1):
     model.train()
 
     for param_group in optimizer.param_groups:
-        param_group['lr'] =  emb_size**(-0.5) * min(step**(-0.5), step * (warm_up**(-1.5))) 
+        param_group['lr'] =  emb_size**(-0.5) * min(step**(-0.5), step * (warm_up**(-1.5))) / 16
         lr = param_group['lr']
 
     sr_batch, tr_batch = dataloader.get_batch()
@@ -82,10 +92,11 @@ for step in range(start + 1, start + steps+1):
     target = tr_batch[:,1:]
     tr_batch = tr_batch[:,:-1]
 
-    #target = target.contiguous().view(-1)
+    target = target.contiguous().view(-1)
     #print(b_target, target)
+
     y_pred = model(sr_batch, tr_batch)
-    y_pred = y_pred.transpose(1,2)
+    #y_pred = y_pred.transpose(1,2)
     loss = criterion(y_pred, target)
 
     #torch.nn.utils.clip_grad_norm_(model.parameters(), 5)
@@ -106,7 +117,7 @@ for step in range(start + 1, start + steps+1):
             model.eval()
             src, trg = test_loader.get_batch()
             pred = model.inference(src, 10)
-            score = get_bleu(pred, trg)
+            score = get_bleu(pred, trg, de_idx2word)
             
             print(f"bleu score : {score}")
             torch.save(model.state_dict(), "./current_step.pt")

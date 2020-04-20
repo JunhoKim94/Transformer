@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from model.attention import *
 import torch.nn.functional as F
+import math
 
 class Pos_Encoding(nn.Module):
     def __init__(self, vocab_size, emb_size, max_length, dropout, device):
@@ -44,7 +45,7 @@ class Pos_Encoding(nn.Module):
         #B, B_S
         pos = torch.arange(0, seq).unsqueeze(0).repeat(batch,1).to(self.device)
         #B, B_S, embed
-        output = self.pos_emb(pos) + self.embed(x)
+        output = self.pos_emb(pos) + self.embed(x) * math.sqrt(self.emb_size)
         output = self.dropout(output)
         
         
@@ -61,8 +62,8 @@ class Position_wise_FFN(nn.Module):
         self.linear = nn.Sequential(
             nn.Linear(emb_size, self.d_ff),
             nn.ReLU(),
+            nn.Dropout(dropout),
             nn.Linear(self.d_ff, emb_size),
-            nn.Dropout(dropout)
         )
     
     def forward(self, x):
@@ -96,7 +97,7 @@ class Encoding_layer(nn.Module):
         '''
 
         #B,S,embed
-        output = self.multi_head(x, x ,x, src_mask)
+        output, att_score = self.multi_head(x, x ,x, src_mask)
 
         #B,S,embed
         output = self.fnn(output)
@@ -124,12 +125,10 @@ class Decoder_layer(nn.Module):
         '''
 
         #B,S,embed
-        output = self.multi_head(x, x, x, trg_mask)
-
+        output, self_att = self.multi_head(x, x, x, trg_mask)
         #query = decoder, key & value = encoder
         #B,S,embed --> encoder들 (src)의 attention 이므로 src_mask
-        output = self.encoder_head(output, src, src, src_mask)
-
+        output, co_att = self.encoder_head(output, src, src, src_mask)
         #B,S,embed
         output = self.fnn(output)
 

@@ -7,7 +7,7 @@ from utils import *
 
 def make_vocab(corpus):
     vocab = dict()
-    tokens = {"<unk>" : 0, "<BOS>" : 1, "<EOS>" : 2}
+    tokens = {"<PAD>" : 0, "<BOS>" : 1, "<EOS>" : 2}
 
     for word, freq in corpus:
         temp = ""

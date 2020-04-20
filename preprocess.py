@@ -28,12 +28,6 @@ def corpus_span(path, common):
     '''
     data = batch x sentence 
     '''
-    en_word2idx = {"PAD" : 0 ,"<BOS>" : 1, "<EOS>" : 2}
-    en_idx2word = {0 : "PAD", 1 : "<BOS>", 2: "<EOS>"}
-
-    de_word2idx = {"PAD" : 0 ,"<BOS>" : 1, "<EOS>" : 2}
-    de_idx2word = {0 : "PAD", 1 : "<BOS>", 2: "<EOS>"}
-
     en_collect = collections.Counter()
     de_collect = collections.Counter()
 
@@ -66,11 +60,12 @@ def corpus_span(path, common):
 
     data = {"en_data" : (en_word2idx, en_idx2word), "de_data" : (de_word2idx, de_idx2word)}
 
+    
     with open("./corpus.pickle", 'wb') as f:
         pickle.dump(data,f)
     
     pair = {"en_data" : en_data, "de_data" : de_data}
-    with open("./data/split/test.pickle", "wb") as f:
+    with open("./data/split/running_test.pickle", "wb") as f:
         pickle.dump(pair, f)
 
     return data, en_data, de_data
@@ -154,6 +149,6 @@ def clean_str(string, TREC = False):
     return string.strip() if TREC else string.strip().lower()
 
 if __name__ == "__main__":
-    data, en_data, de_data = corpus_span("C:/Users/dilab/Documents/GitHub/Seq2Seq/data/en-de_test.txt", 37000)
+    data, en_data, de_data = corpus_span("./data/running_test.txt", 37000)
     print(en_data)
     print(de_data)

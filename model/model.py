@@ -91,7 +91,6 @@ class Transformer(nn.Module):
         #trg_idx = (torch.tril(torch.ones(seq,seq)) == 0).unsqueeze(0)
         #B, S, S
         trg_idx = (torch.tril(torch.ones(seq,seq)) == 0).repeat(batch, 1).view(batch, seq, seq).to(self.device)
-
         trg_mask = trg_pad | trg_idx
         #print(trg_mask)
 
@@ -113,7 +112,7 @@ class Transformer(nn.Module):
         enc_src = self.encoder(src, src_mask)
         output = self.decoder(trg, enc_src, src_mask, trg_mask)
 
-        #output = output.view(batch * seq , -1)
+        output = output.view(batch * seq , -1)
         output = self.output(output)
 
         return output
@@ -136,6 +135,7 @@ class Transformer(nn.Module):
 
         for i in range(1,max_seq):
             trg_mask = self.gen_trg_mask(output)
+            #print(trg_mask[0])
 
             #(B,S,V)
             out = self.decoder(output, enc_src, src_mask, trg_mask)
