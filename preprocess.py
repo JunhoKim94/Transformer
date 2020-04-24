@@ -48,10 +48,9 @@ def corpus_span(path, common):
             
             en_collect.update(line[0].split(" "))
             de_collect.update(line[1].split(" "))
-
     
-    en_selected = en_collect.most_common(50000)
-    de_selected = de_collect.most_common(50000)
+    en_selected = en_collect.most_common(70000)
+    de_selected = de_collect.most_common(70000)
 
     print(len(en_selected), len(de_selected))
 
@@ -60,24 +59,30 @@ def corpus_span(path, common):
 
     data = {"en_data" : (en_word2idx, en_idx2word), "de_data" : (de_word2idx, de_idx2word)}
 
-    
     with open("./corpus.pickle", 'wb') as f:
         pickle.dump(data,f)
     
     pair = {"en_data" : en_data, "de_data" : de_data}
-    with open("./data/split/running_test.pickle", "wb") as f:
+    with open("./data/split/data.pickle", "wb") as f:
         pickle.dump(pair, f)
-
+    
     return data, en_data, de_data
 
-def wordtoid(data, word2idx):
+def wordtoid(data, word2idx, bpe = True):
     '''
     data = (1, sen)
     '''
     data = data.split()
     temp = [word2idx["<BOS>"]]
     for word in data:
-        encode = word_encoding(word, word2idx)
+        if bpe:
+            encode = word_encoding(word, word2idx)
+        else:
+            if word in word2idx:
+                encode = [word2idx[word]]
+            else:
+                encode = None
+
         if encode == None:
             continue
         temp += encode
@@ -86,7 +91,7 @@ def wordtoid(data, word2idx):
 
     return temp
 
-def padding(data, length, batch):
+def padding(data, length):
     '''
     data = [batch_seq, length]
     '''
@@ -95,12 +100,13 @@ def padding(data, length, batch):
         print(data)
         return np.zeros((1, 10), dtype= np.int32)
 
+    batch_size = len(data)
     max_length = max(l)
 
     if max_length > length:
         max_length = length
 
-    batch = np.zeros((batch, max_length), dtype = np.int32)
+    batch = np.zeros((batch_size, max_length), dtype = np.int32)
 
     for i in range(len(data)):
         if l[i] > length:
@@ -108,25 +114,6 @@ def padding(data, length, batch):
         batch[i, :l[i]] = data[i][:l[i]]
 
     return batch
-
-def get_mini(data, batch):
-    seed = np.random.choice(len(data), batch)
-    max_length = max(data[seed, -1])
-
-    return data[seed,:max_length]
-
-def evaluate(ret, idx2word):
-    gen = []
-    for line in ret:
-        temp = []
-        for word in line:
-            if word.item() not in idx2word:
-                continue
-            temp.append(idx2word[word.item()])
-        gen.append(temp)
-    print(gen)
-    return gen
-
 
 def clean_str(string, TREC = False):
     """
@@ -149,6 +136,6 @@ def clean_str(string, TREC = False):
     return string.strip() if TREC else string.strip().lower()
 
 if __name__ == "__main__":
-    data, en_data, de_data = corpus_span("./data/running_test.txt", 37000)
-    print(en_data)
-    print(de_data)
+    data, en_data, de_data = corpus_span("./data/en-de_full.txt", 37000)
+    #en_word2idx, en_idx2word = data["en_data"]
+    #de_word2idx, de_idx2word = data["de_data"]

@@ -4,10 +4,11 @@ import numpy as np
 import torch.nn.functional as F
 
 class Attention(nn.Module):
-    def __init__(self, mode = "dot", dim = None):
+    def __init__(self, dim , dropout = 0.1):
         super(Attention , self).__init__()
-        self.mode = mode
         self.dim = dim
+        self.dropout = nn.Dropout(dropout)
+        self.scale = (dim ** 0.5)
 
     def forward(self, query, key, value, mask = None):
         '''
@@ -19,10 +20,10 @@ class Attention(nn.Module):
         '''
         batch_size = query.size(0)
         seq_size = value.size(2)
-        d_k = query.size(2)
+        d_k = query.size(3)
 
         #(B, h, S2, S1)
-        att_score = torch.matmul(query / (d_k ** 0.5), key.transpose(2,3))
+        att_score = torch.matmul(query / self.scale, key.transpose(2,3))
 
         if mask is not None:
             att_score = att_score.masked_fill(mask, -1e8)
@@ -30,6 +31,7 @@ class Attention(nn.Module):
         #print(att_score)
         #(B, h, S2, S1)
         att_score = F.softmax(att_score, dim = -1)
+        att_score = self.dropout(att_score)
         #print(att_score[0])
         #(B, h, S2, d_v)
         output = torch.matmul(att_score, value)
@@ -52,7 +54,7 @@ class Multi_Head(nn.Module):
         self.layer_norm = nn.LayerNorm(self.d_m, eps = 1e-6)
         
 
-        self.d_att = Attention()
+        self.d_att = Attention(self.d_v)
         self.multi_head = nn.Linear(self.h * self.d_v, self.d_m)
         self.dropout = nn.Dropout(dropout)
 
@@ -86,7 +88,7 @@ class Multi_Head(nn.Module):
 
         #B, S, d_model
         output = self.multi_head(output)
-        output = self.layer_norm(res + output)
         output = self.dropout(output)
+        output = self.layer_norm(res + output)
 
         return output, att_score

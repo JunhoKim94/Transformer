@@ -5,17 +5,19 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 
 class Basedataset(Dataset):
-    def __init__(self, path, en_word2idx, de_word2idx):
+    def __init__(self, path, en_word2idx, de_word2idx, bpe):
         '''
         en_data, de_data ==> raw data which distinguished by sentence
         '''
         with open(path , "rb") as f:
             data = pickle.load(f)
             self.en_data, self.de_data = data["en_data"], data["de_data"]
+        
         #self.en_data = en_data
         #self.de_data = de_data
         self.en_word2idx = en_word2idx
         self.de_word2idx = de_word2idx
+        self.bpe = bpe
 
     def __len__(self):
         return len(self.en_data)
@@ -25,8 +27,8 @@ class Basedataset(Dataset):
         #sr_batch = self.get_random_sample(self.en_data, batch)
         #tr_batch = self.get_random_sample(self.de_data, batch)
 
-        sr_batch = wordtoid(self.en_data[idx], self.en_word2idx)
-        tr_batch = wordtoid(self.de_data[idx], self.de_word2idx)
+        sr_batch = wordtoid(self.en_data[idx], self.en_word2idx, self.bpe)
+        tr_batch = wordtoid(self.de_data[idx], self.de_word2idx, self.bpe)
 
         return sr_batch, tr_batch
 
@@ -61,7 +63,11 @@ class Batch_loader:
 
             #if there are so many tokens in one sentence --> break with empty batch
             if (max_src * sen_len > self.max_token) | (max_trg * sen_len > self.max_token):
-                break
+                if len(sr_batch) == 0:
+                    max_src, max_trg = 0,0
+                    continue
+                else:
+                    break
             sr_batch.append(src)
             tr_batch.append(trg)
 
@@ -71,8 +77,9 @@ class Batch_loader:
         if max_trg > self.max_len:
             max_trg = self.max_len
 
-        sr_batch = padding(sr_batch, max_src, sen_len)
-        tr_batch = padding(tr_batch, max_trg, sen_len)
+        sr_batch = padding(sr_batch, max_src)
+        tr_batch = padding(tr_batch, max_trg)
+
         #print(sr_batch.shape, tr_batch.shape, sen_len)
         sr_batch = torch.LongTensor(sr_batch).to(self.device)
         tr_batch = torch.LongTensor(tr_batch).to(self.device)

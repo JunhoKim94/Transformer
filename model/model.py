@@ -11,8 +11,8 @@ class Encoder(nn.Module):
         self.emb_size = emb_size
 
         self.device = device
-        self.pos_enc = Pos_Encoding(vocab_size, emb_size, max_len, dropout, device)
-        self.attention = nn.ModuleList([Encoding_layer(vocab_size, emb_size, d_ff, dropout, max_len, h) for _ in range(Num)])
+        self.pos_enc = Encoding(vocab_size, emb_size, max_len, dropout, device)
+        self.attention = nn.ModuleList([Encoding_layer(emb_size, d_ff, dropout, h) for _ in range(Num)])
 
     def forward(self, x, src_mask):
         '''
@@ -33,8 +33,8 @@ class Decoder(nn.Module):
         self.vocab_size = vocab_size
         self.emb_size = emb_size
 
-        self.pos_enc = Pos_Encoding(vocab_size, emb_size, max_len, dropout, device)
-        self.attention = nn.ModuleList([Decoder_layer(vocab_size, emb_size, d_ff, dropout, max_len, h) for _ in range(Num)])
+        self.pos_enc = Encoding(vocab_size, emb_size, max_len, dropout, device)
+        self.attention = nn.ModuleList([Decoder_layer(emb_size, d_ff, dropout, h) for _ in range(Num)])
 
     def forward(self, x, src, src_mask, trg_mask):
         '''
@@ -62,10 +62,10 @@ class Transformer(nn.Module):
         self.BOS = 1
         self.EOS = 2
 
-        emb = self.encoder.emb_size
-        out_vocab = self.decoder.vocab_size
+        self.emb = self.encoder.emb_size
+        self.out_vocab = self.decoder.vocab_size
 
-        self.output = nn.Linear(emb, out_vocab)
+        self.output = nn.Linear(self.emb, self.out_vocab)
 
     def gen_src_mask(self, x):
         '''
@@ -88,7 +88,7 @@ class Transformer(nn.Module):
         #B, 1, S
         trg_pad = (x == self.padd_idx).unsqueeze(1)
         #1, S, S
-        #trg_idx = (torch.tril(torch.ones(seq,seq)) == 0).unsqueeze(0)
+        #trg_idx = (torch.tril(torch.ones(seq,seq)) == 0).unsqueeze(0).to(self.device)
         #B, S, S
         trg_idx = (torch.tril(torch.ones(seq,seq)) == 0).repeat(batch, 1).view(batch, seq, seq).to(self.device)
         trg_mask = trg_pad | trg_idx
@@ -112,7 +112,9 @@ class Transformer(nn.Module):
         enc_src = self.encoder(src, src_mask)
         output = self.decoder(trg, enc_src, src_mask, trg_mask)
 
-        output = output.view(batch * seq , -1)
+        #B, S, emb
+        #output = output.view(batch * seq , -1)
+        #output = output.view(-1, self.out_vocab)
         output = self.output(output)
 
         return output
@@ -130,20 +132,13 @@ class Transformer(nn.Module):
         output = torch.zeros((batch, max_seq)).to(torch.long).to(self.device)
         output[:,0] = self.BOS
 
-        src_mask = self.gen_src_mask(src)
-        enc_src = self.encoder(src, src_mask)
+        for i in range(1,max_seq):            
+            out = self.forward(src, output)
 
-        for i in range(1,max_seq):
-            trg_mask = self.gen_trg_mask(output)
-            #print(trg_mask[0])
-
-            #(B,S,V)
-            out = self.decoder(output, enc_src, src_mask, trg_mask)
-            out = self.output(out)
+            #out = out.view(batch, max_seq, -1)
 
             out = out[:,i,:]
             _, pred = torch.topk(F.softmax(out), 1, dim = 1)
-            
             output[:,i] = pred.squeeze(1)
             
         return output.detach()

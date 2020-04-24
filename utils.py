@@ -56,19 +56,19 @@ def get_bleu(pred, trg, trg_idx2word):
         s1 = []
         s2 = []
 
-        p = p[p != 0]
-        t = t[t != 0]
+        #p = p[p != 0]
+        #t = t[t != 0]
         for idx in p:
             if idx in trg_idx2word:
                 s1.append(trg_idx2word[idx])
         for idx in t:
             if idx in trg_idx2word:
                 s2.append(trg_idx2word[idx])
-        print("predict : ", s1)
-        print("target : ", s2)
+        print("predict : ", p)
+        print("target : ", t)
         if len(t) == 0:
             batch -= 1
             continue
-        score += bleu.sentence_bleu([t],p, [1,0,0,0], smoothing_function= cc.method1)
+        score += bleu.sentence_bleu([t],p, [0.25,0.25,0.25,0.25], smoothing_function= cc.method1)
 
     return score / batch

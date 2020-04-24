@@ -14,7 +14,7 @@ def make_vocab(corpus):
         #word = word.lower()
         for c in word:
             temp += c + " "
-            if c not in vocab:
+            if c not in tokens:
                 tokens[c] = len(tokens)
         temp += "</w>"
 
@@ -45,7 +45,6 @@ def merge_vocab(pair, v_in):
 def bpe_corpus(corpus, iteration):
     vocabs, tokens = make_vocab(corpus)
 
-    iteration = 37000
     for _ in tqdm(range(iteration), desc = "byte-pair-encoding"):
         pairs = get_stats(vocabs)
         best = max(pairs, key = pairs.get)
