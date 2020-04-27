@@ -89,9 +89,8 @@ class Position_wise_FFN(nn.Module):
 
 
 class Encoding_layer(nn.Module):
-    def __init__(self, vocab_size, emb_size, d_ff, dropout, h):
+    def __init__(self, emb_size, d_ff, dropout, h):
         super(Encoding_layer, self).__init__()
-        self.vocab_size = vocab_size
         self.emb_size = emb_size
         self.d_ff = d_ff
 
@@ -114,7 +113,7 @@ class Encoding_layer(nn.Module):
         return output
 
 class Decoder_layer(nn.Module):
-    def __init__(self, emb_size, d_ff, dropout,  h):
+    def __init__(self, emb_size, d_ff, dropout, h):
         super(Decoder_layer, self).__init__()
         self.emb_size = emb_size
         self.d_ff = d_ff
