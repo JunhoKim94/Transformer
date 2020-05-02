@@ -98,7 +98,7 @@ for step in range(start + 1, start + steps+1):
     model.train()
 
     for param_group in optimizer.param_groups:
-        param_group['lr'] =  emb_size**(-0.5) * min(step**(-0.5), step * (warm_up**(-1.5))) / 16
+        param_group['lr'] =  emb_size**(-0.5) * min(step**(-0.5), step * (warm_up**(-1.5)))
         lr = param_group['lr']
 
     sr_batch, tr_batch = dataloader.get_batch()
@@ -125,11 +125,11 @@ for step in range(start + 1, start + steps+1):
     avg_src_seq += sr_batch.size(1)
     avg_trg_seq += tr_batch.size(1)
 
-    if step % 100 == 0:
+    if step % 1000 == 0:
         d = step + 1e-5 - start
         print(f"total step : {steps + start}  |  curr_step : {step}  |  Time Spend : {(time.time() - st) / 3600} hours  | loss :  { step_loss / d} | lr : {lr} | avg_batch : {int(avg_batch / d)} | avg_src_seq : {int(avg_src_seq / d)} | avg_trg_seq : {int(avg_trg_seq / d)}")
 
-        if step % 200 == 0:
+        if step % 2000 == 0:
             model.eval()
             src, trg = test_loader.get_batch()
             pred = model.inference(src, 10)

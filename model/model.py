@@ -13,6 +13,8 @@ class Encoder(nn.Module):
         self.device = device
         self.pos_enc = Encoding(vocab_size, emb_size, max_len, dropout, device)
         self.attention = nn.ModuleList([Encoding_layer(emb_size, d_ff, dropout, h) for _ in range(Num)])
+        self.layer_norm = nn.LayerNorm(emb_size)
+
 
     def forward(self, x, src_mask):
         '''
@@ -23,6 +25,8 @@ class Encoder(nn.Module):
         
         for layer in self.attention:
             output = layer(output, src_mask)
+
+        output = self.layer_norm(output)
 
         return output
 
@@ -35,6 +39,7 @@ class Decoder(nn.Module):
 
         self.pos_enc = Encoding(vocab_size, emb_size, max_len, dropout, device)
         self.attention = nn.ModuleList([Decoder_layer(emb_size, d_ff, dropout, h) for _ in range(Num)])
+        self.layer_norm = nn.LayerNorm(emb_size)
 
     def forward(self, x, src, src_mask, trg_mask):
         '''
@@ -48,6 +53,8 @@ class Decoder(nn.Module):
         
         for layer in self.attention:
             output = layer(output, src, trg_mask, src_mask)
+
+        output = self.layer_norm(output)
 
         return output
 
@@ -86,14 +93,15 @@ class Transformer(nn.Module):
         seq = x.shape[1]
 
         #B, 1, S
-        trg_pad = (x == self.padd_idx).unsqueeze(1)
+        #trg_pad = (x == self.padd_idx).unsqueeze(1)
+        
         #1, S, S
-        #trg_idx = (torch.tril(torch.ones(seq,seq)) == 0).unsqueeze(0).to(self.device)
+        trg_mask = (torch.tril(torch.ones(seq,seq)) == 0).unsqueeze(0).to(self.device)
         #B, S, S
-        trg_idx = (torch.tril(torch.ones(seq,seq)) == 0).repeat(batch, 1).view(batch, seq, seq).to(self.device)
-        trg_mask = trg_pad | trg_idx
-        #print(trg_mask)
-
+        
+        #trg_mask = (torch.tril(torch.ones(seq,seq)) == 0).repeat(batch, 1).view(batch, seq, seq).to(self.device)
+        #trg_mask = trg_pad | trg_idx
+        
         return trg_mask
 
     def forward(self, src, trg):
@@ -104,7 +112,8 @@ class Transformer(nn.Module):
         batch = trg.shape[0]
         seq = trg.shape[1]
 
-        src_mask = self.gen_src_mask(src)
+        #src_mask = self.gen_src_mask(src)
+        src_mask = None
         trg_mask = self.gen_trg_mask(trg)
 
         #print(src_mask.shape , trg_mask.shape)

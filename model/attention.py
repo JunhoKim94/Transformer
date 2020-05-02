@@ -12,29 +12,25 @@ class Attention(nn.Module):
 
     def forward(self, query, key, value, mask = None):
         '''
-        query = (B, h, S2, d_q)
-        key = (B, h, S1, d_k)
-        value = (B, h, S1, d_v)
+        query = (B * h, S2, d_q)
+        key = (B * h, S1, d_k)
+        value = (B * h, S1, d_v)
         mask = (B, Real_S, Real_S) or Triangular
         d_q = d_k = d_v
         '''
-        batch_size = query.size(0)
-        seq_size = value.size(2)
-        d_k = query.size(3)
-
-        #(B, h, S2, S1)
-        att_score = torch.matmul(query / self.scale, key.transpose(2,3))
+        #(B * h, S2, S1)
+        att_score = torch.bmm(query / self.scale, key.transpose(1,2))
 
         if mask is not None:
-            att_score = att_score.masked_fill(mask, -1e8)
+            att_score = att_score.masked_fill(mask, float("-inf"))
 
         #print(att_score)
-        #(B, h, S2, S1)
+        #(B *h, S2, S1)
         att_score = F.softmax(att_score, dim = -1)
         att_score = self.dropout(att_score)
         #print(att_score[0])
-        #(B, h, S2, d_v)
-        output = torch.matmul(att_score, value)
+        #(B *h, S2, d_v)
+        output = torch.bmm(att_score, value)
         
         return output, att_score
 
@@ -51,7 +47,7 @@ class Multi_Head(nn.Module):
         self.q_w = nn.Linear(self.d_m, self.d_m)
         self.v_w = nn.Linear(self.d_m, self.d_m)
 
-        self.layer_norm = nn.LayerNorm(self.d_m, eps = 1e-6)
+        self.layer_norm = nn.LayerNorm(self.d_m)
         
 
         self.d_att = Attention(self.d_v)
@@ -64,7 +60,6 @@ class Multi_Head(nn.Module):
         maks = (B, S_real = True + padd = False)
         '''
         batch = k.shape[0]
-        seq = k.shape[1]
         len_q, len_k, len_v = q.size(1), k.size(1), v.size(1)
 
         res = q
@@ -75,15 +70,18 @@ class Multi_Head(nn.Module):
         query = self.q_w(q).view(batch, len_q, self.h, self.d_v)
         value = self.v_w(v).view(batch, len_v, self.h, self.d_v)
         
-        key, query, value = key.transpose(1,2), query.transpose(1,2), value.transpose(1,2)
-        
+        key, query, value = key.transpose(1,2).contiguous(), query.transpose(1,2).contiguous(), value.transpose(1,2).contiguous()
+        key, query, value = key.view(-1, len_k, self.d_v), query.view(-1, len_q, self.d_v), value.view(-1, len_v, self.d_v)
+
+        '''
         #(B,S,S)
         if mask is not None:
             mask = mask.unsqueeze(1)
-
+        '''
         output, att_score = self.d_att(query, key, value, mask)
 
-        #B,h,S2,d_v --> B,S2,h*d_v
+        #B * h,S2,d_v --> B,S2,h*d_v
+        output = output.view(batch, self.h, len_q, self.d_v)
         output = output.transpose(1,2).contiguous().view(batch, len_q, -1)
 
         #B, S, d_model

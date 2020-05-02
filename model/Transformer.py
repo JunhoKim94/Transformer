@@ -1,7 +1,7 @@
 import torch
 from torch.nn import Transformer
 import torch.nn as nn
-from model.sublayer import Pos_encoding
+from model.sublayer import Pos_encoding,Encoding
 import torch.nn.functional as F
 
 class Transformer_fr(nn.Module):
@@ -13,24 +13,63 @@ class Transformer_fr(nn.Module):
         self.BOS = 1
         self.device = device
 
-        self.encode = Pos_encoding(embed_size, max_len, device)
-        self.en_emb = nn.Embedding(self.en_vocab, embed_size, padding_idx = 0)
-        self.de_emb = nn.Embedding(self.de_vocab, embed_size, padding_idx = 0)
+        #self.encode = Pos_encoding(embed_size, max_len, device)
+        #self.en_emb = nn.Embedding(self.en_vocab, embed_size, padding_idx = 0)
+        #self.de_emb = nn.Embedding(self.de_vocab, embed_size, padding_idx = 0)
+
+        self.en_enc = Encoding(self.en_vocab, embed_size, max_len, 0.2, device)
+        self.de_enc = Encoding(self.de_vocab, embed_size, max_len, 0.2, device)
 
         self.transformer = Transformer()
         self.fc = nn.Linear(embed_size, self.de_vocab)
 
         self.scale = embed_size ** 0.5
 
+    def gen_src_mask(self, x):
+        '''
+        x = (B, S)
+        src_mask = (B, 1, S_r) --> broadcast
+        '''
+        #(B,1,S)
+        src_mask = (x == self.padd_idx).unsqueeze(1)
+
+        return src_mask.to(self.device)
+
+    def gen_trg_mask(self, x):
+        '''
+        x = (B,S)
+        trg_mask = (B, S, S_r) : triangle
+        '''
+        batch = x.shape[0]
+        seq = x.shape[1]
+
+        #B, 1, S
+        #trg_pad = (x == self.padd).unsqueeze(1)
+        #1, S, S
+        #S, S
+        trg_mask = torch.tril(torch.ones(seq,seq))
+        trg_mask[trg_mask == 0] = float("-inf")
+        trg_mask[trg_mask == 1] = float(0.0)
+        #trg_mask = trg_pad | trg_idx
+        #print(trg_mask)
+
+        return trg_mask.to(self.device)
+
+
     def forward(self, src, trg):
 
-        src = self.en_emb(src) * self.scale + self.encode(src)
-        trg = self.de_emb(trg) * self.scale+ self.encode(trg)
+        #src = self.en_emb(src) * self.scale + self.encode(src)
+        #trg = self.de_emb(trg) * self.scale+ self.encode(trg)
 
+        src = self.en_enc(src)
+        trg = self.de_enc(trg)
+
+        trg_mask = self.gen_trg_mask(trg)
+        #print(trg_mask)
         src = src.transpose(0,1)
         trg = trg.transpose(0,1)
 
-        output = self.transformer(src, trg)
+        output = self.transformer(src, trg, tgt_mask = trg_mask)
         output = output.transpose(0,1)
         output = self.fc(output)
 
@@ -45,7 +84,7 @@ class Transformer_fr(nn.Module):
         '''
 
         #in order to paper, max_seq = src seq + 300
-        max_seq = src.size(1)
+        max_seq = src.size(1) + 20
 
         batch = src.size(0)
         output = torch.zeros((batch, max_seq)).to(torch.long).to(self.device)
@@ -55,9 +94,9 @@ class Transformer_fr(nn.Module):
             out = self.forward(src, output)
 
             #out = out.view(batch, max_seq, -1)
-
+            #print(out.shape)
             out = out[:,i,:]
-            _, pred = torch.topk(F.softmax(out), 1, dim = 1)
+            _, pred = torch.topk(F.softmax(out), 1, dim = -1)
             output[:,i] = pred.squeeze(1)
 
         return output.detach()
