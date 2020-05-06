@@ -21,7 +21,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else 'cpu')
 #device = torch.device("cpu")
 print(torch.cuda.is_available())
 corpus_path = "./corpus.pickle"
-data_path = "./data/split/data.pickle"
+data_path = "./data/split/running_test.pickle"
 
 #data, en_data, de_data = corpus_span(path, 50000)
 en_word2idx, en_idx2word, de_word2idx, de_idx2word = call_data(corpus_path)
@@ -53,23 +53,23 @@ dataloader = Batch_loader(dataset, device, max_len, max_token)
 total = len(dataset)
 
 #model
-'''
+
 encoder = Encoder(en_vocab_size, emb_size , d_ff, dropout, max_len, h, Num, device)
 decoder = Decoder(de_vocab_size, emb_size , d_ff, dropout, max_len, h, Num, device)
 model = Transformer(encoder, decoder, PAD, device).to(device)
-'''
-model = Transformer_fr(en_vocab_size, de_vocab_size, PAD, max_len, emb_size, device).to(device)
+
+#model = Transformer_fr(en_vocab_size, de_vocab_size, PAD, max_len, emb_size, device).to(device)
 
 
 #model.load_state_dict(torch.load("./current_step.pt"))
-criterion = nn.CrossEntropyLoss()
+criterion = nn.CrossEntropyLoss(ignore_index = 0)
 optimizer = torch.optim.Adam(model.parameters(), lr = lr, betas = (0.9, 0.98), eps = 1e-9)
 
 #torch.nn.utils.clip_grad_norm_(model.parameters(), 90, norm_type = 2)
 #d_model ** -0.5 
 #scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer = optimizer, lr_lambda = lambda epoch : 0.95**epoch)
 
-test_dataset = Basedataset("./data/split/test.pickle", en_word2idx, de_word2idx, bpe)
+test_dataset = Basedataset("./data/split/running_test.pickle", en_word2idx, de_word2idx, bpe)
 test_loader = Batch_loader(test_dataset, device, max_len, 1000)
 
 '''
@@ -98,7 +98,7 @@ for step in range(start + 1, start + steps+1):
     model.train()
 
     for param_group in optimizer.param_groups:
-        param_group['lr'] =  emb_size**(-0.5) * min(step**(-0.5), step * (warm_up**(-1.5))) / 64
+        param_group['lr'] =  emb_size**(-0.5) * min(step**(-0.5), step * (warm_up**(-1.5))) /24
         lr = param_group['lr']
 
     sr_batch, tr_batch = dataloader.get_batch()
@@ -125,11 +125,11 @@ for step in range(start + 1, start + steps+1):
     avg_src_seq += sr_batch.size(1)
     avg_trg_seq += tr_batch.size(1)
 
-    if step % 1000 == 0:
+    if step % 100 == 0:
         d = step + 1e-5 - start
         print(f"total step : {steps + start}  |  curr_step : {step}  |  Time Spend : {(time.time() - st) / 3600} hours  | loss :  { step_loss / d} | lr : {lr} | avg_batch : {int(avg_batch / d)} | avg_src_seq : {int(avg_src_seq / d)} | avg_trg_seq : {int(avg_trg_seq / d)}")
 
-        if step % 2000 == 0:
+        if step % 200 == 0:
             model.eval()
             src, trg = test_loader.get_batch()
             pred = model.inference(src, 10)

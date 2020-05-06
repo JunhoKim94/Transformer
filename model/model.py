@@ -128,26 +128,30 @@ class Transformer(nn.Module):
 
         return output
 
-    def inference(self,src, max_seq):
+
+    def inference(self, src, max_seq):
         '''
         x  = (B, S_source)
         return (B, S_target)
         '''
 
         #in order to paper, max_seq = src seq + 300
-        max_seq = src.size(1)
-
+        max_seq = src.size(1) + 20
         batch = src.size(0)
-        output = torch.zeros((batch, max_seq)).to(torch.long).to(self.device)
-        output[:,0] = self.BOS
+        
+        #outputs = []
+
+        outputs = torch.zeros((batch, 1)).to(torch.long).to(self.device)
+        outputs[:, 0] = self.BOS
 
         for i in range(1,max_seq):            
-            out = self.forward(src, output)
+            out = self.forward(src, outputs)
 
             #out = out.view(batch, max_seq, -1)
+            #print(out.shape)
+            out = out[:,-1,:]
+            pred = torch.topk(F.log_softmax(out), 1, dim = -1)[1]
 
-            out = out[:,i,:]
-            _, pred = torch.topk(F.softmax(out), 1, dim = 1)
-            output[:,i] = pred.squeeze(1)
-            
-        return output.detach()
+            outputs = torch.cat([outputs, pred], dim = 1)
+
+        return outputs.detach()
