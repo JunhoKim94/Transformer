@@ -52,9 +52,11 @@ def get_bleu(pred, trg, trg_idx2word, lengths):
     cc = bleu.SmoothingFunction()
     
     score = 0
-    for b,p,t in enumerate(pred, trg):
+    b = 0
+    for p,t in zip(pred, trg):
         p = p[:lengths[b]]
-        t = t[:lengths[b]]
+        t = t[t != 0]
+        b += 1
         '''
         s1 = []
         s2 = []

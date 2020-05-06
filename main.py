@@ -63,7 +63,7 @@ model = Transformer(encoder, decoder, PAD, device).to(device)
 criterion = nn.CrossEntropyLoss(ignore_index = 0)
 optimizer = torch.optim.Adam(model.parameters(), lr = lr, betas = (0.9, 0.98), eps = 1e-9)
 
-test_dataset = Basedataset("./data/split/running_test.pickle", en_word2idx, de_word2idx, bpe)
+test_dataset = Basedataset("./data/split/test.pickle", en_word2idx, de_word2idx, bpe)
 test_loader = Batch_loader(test_dataset, device, max_len, 1000)
 
 best_loss = 1e5
@@ -78,7 +78,7 @@ for step in range(start + 1, start + steps+1):
     model.train()
 
     for param_group in optimizer.param_groups:
-        param_group['lr'] =  emb_size**(-0.5) * min(step**(-0.5), step * (warm_up**(-1.5)))
+        param_group['lr'] =  emb_size**(-0.5) * min(step**(-0.5), step * (warm_up**(-1.5))) / 8
         lr = param_group['lr']
 
     sr_batch, tr_batch = dataloader.get_batch()

@@ -158,7 +158,7 @@ class Transformer(nn.Module):
             eos_batches = pred.data.eq(self.EOS)
             if eos_batches.dim() > 0:
                 eos_batches = eos_batches.cpu().view(-1).numpy()
-                update_idx = (((lengths) > step) & eos_batches) != 0)
+                update_idx = ((lengths > step) & eos_batches) != 0
                 lengths[update_idx] = step 
 
 
