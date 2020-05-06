@@ -60,11 +60,14 @@ class Transformer_fr(nn.Module):
 
         #src = self.en_emb(src) * self.scale + self.encode(src)
         #trg = self.de_emb(trg) * self.scale+ self.encode(trg)
+        trg_seq = trg.size(1)
 
         src = self.en_enc(src)
         trg = self.de_enc(trg)
 
-        trg_mask = self.gen_trg_mask(trg)
+        trg_mask = self.transformer.generate_square_subsequent_mask(trg_seq).to(self.device)
+        #trg_mask = self.gen_trg_mask(trg)
+
         #print(trg_mask)
         src = src.transpose(0,1)
         trg = trg.transpose(0,1)
@@ -85,8 +88,8 @@ class Transformer_fr(nn.Module):
 
         #in order to paper, max_seq = src seq + 300
         max_seq = src.size(1) + 20
-
         batch = src.size(0)
+        
         output = torch.zeros((batch, max_seq)).to(torch.long).to(self.device)
         output[:, 0] = self.BOS
 

@@ -21,7 +21,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else 'cpu')
 #device = torch.device("cpu")
 print(torch.cuda.is_available())
 corpus_path = "./corpus.pickle"
-data_path = "./data/split/running_test.pickle"
+data_path = "./data/split/data.pickle"
 
 #data, en_data, de_data = corpus_span(path, 50000)
 en_word2idx, en_idx2word, de_word2idx, de_idx2word = call_data(corpus_path)
@@ -69,7 +69,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr = lr, betas = (0.9, 0.98), e
 #d_model ** -0.5 
 #scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer = optimizer, lr_lambda = lambda epoch : 0.95**epoch)
 
-test_dataset = Basedataset("./data/split/running_test.pickle", en_word2idx, de_word2idx, bpe)
+test_dataset = Basedataset("./data/split/test.pickle", en_word2idx, de_word2idx, bpe)
 test_loader = Batch_loader(test_dataset, device, max_len, 1000)
 
 '''
@@ -98,7 +98,7 @@ for step in range(start + 1, start + steps+1):
     model.train()
 
     for param_group in optimizer.param_groups:
-        param_group['lr'] =  emb_size**(-0.5) * min(step**(-0.5), step * (warm_up**(-1.5)))
+        param_group['lr'] =  emb_size**(-0.5) * min(step**(-0.5), step * (warm_up**(-1.5))) / 64
         lr = param_group['lr']
 
     sr_batch, tr_batch = dataloader.get_batch()
