@@ -18,12 +18,10 @@ bpe = True
 
 print("\n ==============================> Training Start <=============================")
 device = torch.device("cuda:0" if torch.cuda.is_available() else 'cpu')
-#device = torch.device("cpu")
 print(torch.cuda.is_available())
 corpus_path = "./corpus.pickle"
-data_path = "./data/split/running_test.pickle"
+data_path = "./data/split/data.pickle"
 
-#data, en_data, de_data = corpus_span(path, 50000)
 en_word2idx, en_idx2word, de_word2idx, de_idx2word = call_data(corpus_path)
 
 test_dict = dict()
@@ -65,26 +63,8 @@ model = Transformer(encoder, decoder, PAD, device).to(device)
 criterion = nn.CrossEntropyLoss(ignore_index = 0)
 optimizer = torch.optim.Adam(model.parameters(), lr = lr, betas = (0.9, 0.98), eps = 1e-9)
 
-#torch.nn.utils.clip_grad_norm_(model.parameters(), 90, norm_type = 2)
-#d_model ** -0.5 
-#scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer = optimizer, lr_lambda = lambda epoch : 0.95**epoch)
-
 test_dataset = Basedataset("./data/split/running_test.pickle", en_word2idx, de_word2idx, bpe)
 test_loader = Batch_loader(test_dataset, device, max_len, 1000)
-
-'''
-model.eval()
-src, trg = test_loader.get_batch()
-pred = model.inference(src, 10)
-y_pred = model(src,trg)
-#_, p = torch.topk(y_pred, 1, dim = 1)
-#p = p.view(trg.size(0), -1)
-#print(p, trg)
-
-score = get_bleu(pred, trg, de_idx2word)
-print(score)
-'''
-
 
 best_loss = 1e5
 st = time.time()
@@ -98,7 +78,7 @@ for step in range(start + 1, start + steps+1):
     model.train()
 
     for param_group in optimizer.param_groups:
-        param_group['lr'] =  emb_size**(-0.5) * min(step**(-0.5), step * (warm_up**(-1.5))) /24
+        param_group['lr'] =  emb_size**(-0.5) * min(step**(-0.5), step * (warm_up**(-1.5)))
         lr = param_group['lr']
 
     sr_batch, tr_batch = dataloader.get_batch()
@@ -111,7 +91,6 @@ for step in range(start + 1, start + steps+1):
     y_pred = model(sr_batch, tr_batch)
 
     y_pred = y_pred.view(-1, len(de_word2idx))
-    #y_pred = y_pred.transpose(1,2)
     loss = criterion(y_pred, target)
 
     optimizer.zero_grad()
@@ -125,15 +104,15 @@ for step in range(start + 1, start + steps+1):
     avg_src_seq += sr_batch.size(1)
     avg_trg_seq += tr_batch.size(1)
 
-    if step % 100 == 0:
+    if step % 1000 == 0:
         d = step + 1e-5 - start
         print(f"total step : {steps + start}  |  curr_step : {step}  |  Time Spend : {(time.time() - st) / 3600} hours  | loss :  { step_loss / d} | lr : {lr} | avg_batch : {int(avg_batch / d)} | avg_src_seq : {int(avg_src_seq / d)} | avg_trg_seq : {int(avg_trg_seq / d)}")
 
-        if step % 200 == 0:
+        if step % 2000 == 0:
             model.eval()
             src, trg = test_loader.get_batch()
-            pred = model.inference(src, 10)
-            score = get_bleu(pred, trg, de_idx2word)
+            pred, lengths = model.inference(src, 10)
+            score = get_bleu(pred, trg, de_idx2word, lengths)
             
             print(f"bleu score : {score}")
             torch.save(model.state_dict(), "./current_step.pt")
@@ -143,8 +122,3 @@ for step in range(start + 1, start + steps+1):
             #torch.save(model.state_dict(), "./model.pt")
 
     del loss, y_pred, target, sr_batch, tr_batch
-
-        #test = torch.Tensor(get_mini(b_train, 1)).to(torch.long).to(device)
-        #evaluate(test, idx2word)
-        #ret = model.generate(test, 10, None, 5)
-        #evaluate(ret, idx2word)

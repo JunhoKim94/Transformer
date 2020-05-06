@@ -40,7 +40,7 @@ def evalutate(dataloader, model):
 
     return total_loss / len(dataloader)
 
-def get_bleu(pred, trg, trg_idx2word):
+def get_bleu(pred, trg, trg_idx2word, lengths):
     '''
     pred = (B, S)
     trg = (B, S)
@@ -52,18 +52,20 @@ def get_bleu(pred, trg, trg_idx2word):
     cc = bleu.SmoothingFunction()
     
     score = 0
-    for p,t in zip(pred, trg):
+    for b,p,t in enumerate(pred, trg):
+        p = p[:lengths[b]]
+        t = t[:lengths[b]]
+        '''
         s1 = []
         s2 = []
 
-        p = p[p != 0]
-        t = t[t != 0]
         for idx in p:
             if idx in trg_idx2word:
                 s1.append(trg_idx2word[idx])
         for idx in t:
             if idx in trg_idx2word:
                 s2.append(trg_idx2word[idx])
+        '''
         print("predict : ", p)
         print("target : ", t)
         if len(t) == 0:

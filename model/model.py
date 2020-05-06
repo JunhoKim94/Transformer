@@ -138,13 +138,14 @@ class Transformer(nn.Module):
         #in order to paper, max_seq = src seq + 300
         max_seq = src.size(1) + 20
         batch = src.size(0)
-        
+
+        lengths = np.array([max_seq] * batch)
         #outputs = []
 
         outputs = torch.zeros((batch, 1)).to(torch.long).to(self.device)
         outputs[:, 0] = self.BOS
 
-        for i in range(1,max_seq):            
+        for step in range(1,max_seq):            
             out = self.forward(src, outputs)
 
             #out = out.view(batch, max_seq, -1)
@@ -154,4 +155,11 @@ class Transformer(nn.Module):
 
             outputs = torch.cat([outputs, pred], dim = 1)
 
-        return outputs.detach()
+            eos_batches = pred.data.eq(self.EOS)
+            if eos_batches.dim() > 0:
+                eos_batches = eos_batches.cpu().view(-1).numpy()
+                update_idx = (((lengths) > step) & eos_batches) != 0)
+                lengths[update_idx] = step 
+
+
+        return outputs.detach(), lengths
