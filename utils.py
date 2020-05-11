@@ -54,20 +54,9 @@ def get_bleu(pred, trg, trg_idx2word, lengths):
     score = 0
     b = 0
     for p,t in zip(pred, trg):
-        p = p[:lengths[b]]
+        p = p[:lengths[b] + 1]
         t = t[t != 0]
         b += 1
-        '''
-        s1 = []
-        s2 = []
-
-        for idx in p:
-            if idx in trg_idx2word:
-                s1.append(trg_idx2word[idx])
-        for idx in t:
-            if idx in trg_idx2word:
-                s2.append(trg_idx2word[idx])
-        '''
         print("predict : ", p)
         print("target : ", t)
         if len(t) == 0:
