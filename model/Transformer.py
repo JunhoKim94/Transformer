@@ -82,14 +82,14 @@ class Transformer_fr(nn.Module):
         return output
     
 
-    def inference(self, src, max_seq):
+    def inference(self, src):
         '''
         x  = (B, S_source)
         return (B, S_target)
         '''
 
         #in order to paper, max_seq = src seq + 300
-        max_seq = src.size(1) + 20
+        max_seq = src.size(1)
         batch = src.size(0)
 
         lengths = np.array([max_seq] * batch)

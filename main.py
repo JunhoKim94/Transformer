@@ -12,15 +12,15 @@ from model.Transformer import Transformer_fr
 
 PAD = 0
 lr = 0.0025
-steps = 300000
-warm_up = 8000
+steps = 600000
+warm_up = 4000
 bpe = True
 
 print("\n ==============================> Training Start <=============================")
-device = torch.device("cuda:0" if torch.cuda.is_available() else 'cpu')
+device = torch.device("cuda:1" if torch.cuda.is_available() else 'cpu')
 print(torch.cuda.is_available())
 corpus_path = "./corpus.pickle"
-data_path = "./data/split/running_test.pickle"
+data_path = "./data/split/test.pickle"
 
 en_word2idx, en_idx2word, de_word2idx, de_idx2word = call_data(corpus_path)
 
@@ -38,11 +38,11 @@ en_vocab_size = len(en_word2idx)
 de_vocab_size = len(de_word2idx)
 emb_size = 512
 d_ff = 2048
-dropout = 0.2
+dropout = 0.1
 max_len = 200
 h = 8
 Num = 6
-max_token = 2800
+max_token = 4096
 
 #dataset
 dataset = Basedataset(data_path, en_word2idx, de_word2idx, bpe)
@@ -51,20 +51,20 @@ dataloader = Batch_loader(dataset, device, max_len, max_token)
 total = len(dataset)
 
 #model
-
+'''
 encoder = Encoder(en_vocab_size, emb_size , d_ff, dropout, max_len, h, Num, device)
 decoder = Decoder(de_vocab_size, emb_size , d_ff, dropout, max_len, h, Num, device)
 model = Transformer(encoder, decoder, PAD, device).to(device)
+'''
+model = Transformer_fr(en_vocab_size, de_vocab_size, PAD, max_len, emb_size, device).to(device)
 
-#model = Transformer_fr(en_vocab_size, de_vocab_size, PAD, max_len, emb_size, device).to(device)
 
-
-#model.load_state_dict(torch.load("./current_step.pt"))
+#odel.load_state_dict(torch.load("./current_step.pt"))
 criterion = nn.CrossEntropyLoss(ignore_index = 0)
 optimizer = torch.optim.Adam(model.parameters(), lr = lr, betas = (0.9, 0.98), eps = 1e-9)
 
-test_dataset = Basedataset("./data/split/running_test.pickle", en_word2idx, de_word2idx, bpe)
-test_loader = Batch_loader(test_dataset, device, max_len, 1000)
+test_dataset = Basedataset("./data/split/test.pickle", en_word2idx, de_word2idx, bpe)
+test_loader = Batch_loader(test_dataset, device, max_len, 3000)
 
 best_loss = 1e5
 st = time.time()
@@ -74,11 +74,21 @@ avg_batch = 0
 avg_src_seq = 0
 avg_trg_seq = 0
 start = 0
+
+'''
+model.eval()
+#src, trg = test_loader.get_batch()
+#pred, lengths = model.inference(src)
+#score = get_bleu(pred, trg, de_idx2word, lengths)
+score = evaluate(dataloader, model)
+print(f"bleu score : {score}")
+
+'''
 for step in range(start + 1, start + steps+1):
     model.train()
 
     for param_group in optimizer.param_groups:
-        param_group['lr'] =  emb_size**(-0.5) * min(step**(-0.5), step * (warm_up**(-1.5))) / 8
+        param_group['lr'] =  emb_size**(-0.5) * min(step**(-0.5), step * (warm_up**(-1.5)))
         lr = param_group['lr']
 
     sr_batch, tr_batch = dataloader.get_batch()
@@ -104,21 +114,29 @@ for step in range(start + 1, start + steps+1):
     avg_src_seq += sr_batch.size(1)
     avg_trg_seq += tr_batch.size(1)
 
-    if step % 100 == 0:
+    if step % 200 == 0:
         d = step + 1e-5 - start
-        print(f"total step : {steps + start}  |  curr_step : {step}  |  Time Spend : {(time.time() - st) / 3600} hours  | loss :  { step_loss / d} | lr : {lr} | avg_batch : {int(avg_batch / d)} | avg_src_seq : {int(avg_src_seq / d)} | avg_trg_seq : {int(avg_trg_seq / d)}")
+        spend = round((time.time() - st)/ 3600 ,3)
+        print(f"total step : {steps + start}  |  curr_step : {step}  |  Time Spend : {spend} hours  | loss :  { step_loss / d} | lr : {lr} | avg_batch : {int(avg_batch / d)} | avg_src_seq : {int(avg_src_seq / d)} | avg_trg_seq : {int(avg_trg_seq / d)}")
+        #score = evaluate(test_loader, model)
+        #print(score)
+        current_loss = step_loss / step
 
-        if step % 200 == 0:
+        #if (step % 3000 == 0 and step > 50000):
+        if (step % 400 == 0):
             model.eval()
+ 
             src, trg = test_loader.get_batch()
-            pred, lengths = model.inference(src, 10)
-            score = get_bleu(pred, trg, de_idx2word, lengths)
+            pred, lengths = model.inference(src)
+            score2 = get_bleu2(pred, trg, de_idx2word, lengths)
+ 
+            score = evaluate(test_loader, model)
             
-            print(f"bleu score : {score}")
-            #torch.save(model.state_dict(), "./current_step.pt")
+            print(f"bleu score : {score} | compare bleu : {score2}")
+            torch.save(model.state_dict(), "./current_step.pt")
 
-        if best_loss > step_loss:
-            best_loss = step_loss
-            #torch.save(model.state_dict(), "./model.pt")
+        if best_loss > current_loss:
+            best_loss = current_loss
+            torch.save(model.state_dict(), "./model.pt")
 
     del loss, y_pred, target, sr_batch, tr_batch

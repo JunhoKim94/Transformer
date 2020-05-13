@@ -24,9 +24,6 @@ class Basedataset(Dataset):
 
     def __getitem__(self, idx):
 
-        #sr_batch = self.get_random_sample(self.en_data, batch)
-        #tr_batch = self.get_random_sample(self.de_data, batch)
-
         sr_batch = wordtoid(self.en_data[idx], self.en_word2idx, self.bpe)
         tr_batch = wordtoid(self.de_data[idx], self.de_word2idx, self.bpe)
 
@@ -42,12 +39,13 @@ class Batch_loader:
         self.max_len = max_len
         self.max_token = max_token
         #random.seed(19941017)
+        self.idx = 0
 
     def __len__(self):
         return len(self.dataset)
 
 
-    def get_batch(self):
+    def get_batch(self, ran = True):
         
         length = len(self.dataset)
 
@@ -55,32 +53,34 @@ class Batch_loader:
         sr_batch, tr_batch = [],[]
         while(1):
             seed = random.randint(0, length - 1)
-            src, trg = self.dataset[seed]
+            src, trg = self.dataset[seed] if ran else self.dataset[self.idx]
             
             sen_len += 1
             max_src = len(src) if max_src < len(src) else max_src
             max_trg = len(trg) if max_trg < len(trg) else max_trg
 
+            
+            if abs(len(src) - len(trg)) > 40:
+                self.idx += 1
+                continue
+            
+
             #if there are so many tokens in one sentence --> break with empty batch
             if (max_src * sen_len > self.max_token) | (max_trg * sen_len > self.max_token):
-                if len(sr_batch) == 0:
-                    max_src, max_trg = 0,0
-                    continue
-                else:
-                    break
+                if ran:
+                    self.idx = 0
+                break
+
             sr_batch.append(src)
             tr_batch.append(trg)
+            self.idx += 1
 
-        if max_src > self.max_len:
-            max_src = self.max_len
-        
-        if max_trg > self.max_len:
-            max_trg = self.max_len
+            if self.idx > length - 1:
+                break
 
-        sr_batch = padding(sr_batch, max_src)
-        tr_batch = padding(tr_batch, max_trg)
+        sr_batch = padding(sr_batch, self.max_len)
+        tr_batch = padding(tr_batch, self.max_len)
 
-        #print(sr_batch.shape, tr_batch.shape, sen_len)
         sr_batch = torch.LongTensor(sr_batch).to(self.device)
         tr_batch = torch.LongTensor(tr_batch).to(self.device)
 

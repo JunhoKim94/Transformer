@@ -40,11 +40,7 @@ def evalutate(dataloader, model):
 
     return total_loss / len(dataloader)
 
-def get_bleu(pred, trg, trg_idx2word, lengths):
-    '''
-    pred = (B, S)
-    trg = (B, S)
-    '''
+def get_bleu2(pred, trg, trg_idx2word, lengths):
     pred = pred.cpu().numpy()
     trg = trg.cpu().numpy()
     batch = pred.shape[0]
@@ -64,4 +60,51 @@ def get_bleu(pred, trg, trg_idx2word, lengths):
             continue
         score += bleu.sentence_bleu([t],p, [0.25,0.25,0.25,0.25], smoothing_function= cc.method1)
 
-    return score / batch
+    return score / batch * 100
+
+
+def get_bleu(pred, trg, lengths, BLEU = [0.25, 0.25, 0.25, 0.25]):
+
+    pred = pred.cpu().numpy()
+    trg = trg.cpu().numpy()
+    batch = pred.shape[0]
+
+    cc = bleu.SmoothingFunction()
+    
+    score = 0
+    b = 0
+    for p,t in zip(pred, trg):
+        p = p[:lengths[b] + 1]
+        t = t[t != 0]
+
+        b += 1
+
+        #print("pred :" , p)
+        #print("target: ", t)
+
+        score += bleu.sentence_bleu([t],p, BLEU, smoothing_function= cc.method1)
+
+    return score
+
+def evaluate(dataloader, model):
+    
+    total = 0
+    bleu = 0
+    while(1):
+    #for idx in range(len(dataloader) // batch):
+        src, trg = dataloader.get_batch(ran = False)
+        total += src.shape[0]
+        pred, length = model.inference(src)
+
+        score = get_bleu(pred, trg, length, BLEU = [0.25, 0.25, 0.25, 0.25])
+        bleu += score
+
+        if dataloader.idx >= len(dataloader):
+            dataloader.idx = 0
+            break
+
+
+    bleu /= (total/100)
+    bleu = round(bleu, 2)
+
+    return bleu

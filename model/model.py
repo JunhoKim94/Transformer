@@ -30,6 +30,7 @@ class Encoder(nn.Module):
 
         return output
 
+
 class Decoder(nn.Module):
     def __init__(self, vocab_size, emb_size, d_ff, dropout, max_len, h, Num, device):
         super(Decoder, self).__init__()
@@ -129,14 +130,14 @@ class Transformer(nn.Module):
         return output
 
 
-    def inference(self, src, max_seq):
+    def inference(self, src):
         '''
         x  = (B, S_source)
         return (B, S_target)
         '''
 
         #in order to paper, max_seq = src seq + 300
-        max_seq = src.size(1) + 20
+        max_seq = src.size(1)
         batch = src.size(0)
 
         lengths = np.array([max_seq] * batch)
@@ -154,12 +155,12 @@ class Transformer(nn.Module):
             pred = torch.topk(F.log_softmax(out), 1, dim = -1)[1]
 
             outputs = torch.cat([outputs, pred], dim = 1)
-
             eos_batches = pred.data.eq(self.EOS)
+
             if eos_batches.dim() > 0:
                 eos_batches = eos_batches.cpu().view(-1).numpy()
                 update_idx = ((lengths > step) & eos_batches) != 0
-                lengths[update_idx] = step 
+                lengths[update_idx] = step
 
 
         return outputs.detach(), lengths
