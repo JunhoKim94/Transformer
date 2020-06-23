@@ -40,8 +40,10 @@ def corpus_span(path, common):
             line = line[:-1]
             line = line.split("\t")
 
-            line[0] = clean_str(line[0], True)
-            line[1] = clean_str(line[1], True)
+            line[0] = clean_str(line[0])
+            line[1] = clean_str(line[1])
+            if abs(len(line[0].split()) - len(line[1].split())) > 30:
+                continue
 
             en_data.append(line[0])
             de_data.append(line[1])
@@ -49,6 +51,8 @@ def corpus_span(path, common):
             en_collect.update(line[0].split(" "))
             de_collect.update(line[1].split(" "))
     
+    print(len(en_data), len(de_data))
+
     en_selected = en_collect.most_common(70000)
     de_selected = de_collect.most_common(70000)
 
@@ -115,7 +119,7 @@ def padding(data, length):
 
     return batch
 
-def clean_str(string, TREC = False):
+def clean_str(string):
     """
     Tokenization/string cleaning for all datasets except for SST.
     Every dataset is lower cased except for TREC
@@ -133,7 +137,7 @@ def clean_str(string, TREC = False):
     string = re.sub(r"\)", " \) ", string) 
     string = re.sub(r"\?", " \? ", string) 
     string = re.sub(r"\s{2,}", " ", string)    
-    return string.strip() if TREC else string.strip().lower()
+    return string.strip()
 
 if __name__ == "__main__":
     data, en_data, de_data = corpus_span("./data/en-de_full.txt", 37000)

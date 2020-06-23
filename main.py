@@ -17,7 +17,7 @@ warm_up = 4000
 bpe = True
 
 print("\n ==============================> Training Start <=============================")
-device = torch.device("cuda:1" if torch.cuda.is_available() else 'cpu')
+device = torch.device("cuda:0" if torch.cuda.is_available() else 'cpu')
 print(torch.cuda.is_available())
 corpus_path = "./corpus.pickle"
 data_path = "./data/split/test.pickle"
@@ -51,15 +51,15 @@ dataloader = Batch_loader(dataset, device, max_len, max_token)
 total = len(dataset)
 
 #model
-'''
+
 encoder = Encoder(en_vocab_size, emb_size , d_ff, dropout, max_len, h, Num, device)
 decoder = Decoder(de_vocab_size, emb_size , d_ff, dropout, max_len, h, Num, device)
 model = Transformer(encoder, decoder, PAD, device).to(device)
 '''
 model = Transformer_fr(en_vocab_size, de_vocab_size, PAD, max_len, emb_size, device).to(device)
+'''
 
-
-#odel.load_state_dict(torch.load("./current_step.pt"))
+#model.load_state_dict(torch.load("./current_step.pt"))
 criterion = nn.CrossEntropyLoss(ignore_index = 0)
 optimizer = torch.optim.Adam(model.parameters(), lr = lr, betas = (0.9, 0.98), eps = 1e-9)
 
@@ -92,7 +92,7 @@ for step in range(start + 1, start + steps+1):
         lr = param_group['lr']
 
     sr_batch, tr_batch = dataloader.get_batch()
-
+    print("check")
     target = tr_batch[:,1:]
     tr_batch = tr_batch[:,:-1]
 

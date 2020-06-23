@@ -4,6 +4,7 @@ import torch.nn as nn
 import pickle
 from preprocess import *
 from utils import *
+import collections
 
 def make_vocab(corpus):
     vocab = dict()
@@ -49,7 +50,9 @@ def bpe_corpus(corpus, iteration):
         pairs = get_stats(vocabs)
         best = max(pairs, key = pairs.get)
         tokens["".join(best)] = len(tokens)
+        #print(tokens)
         vocabs = merge_vocab(best, vocabs)
+        print(len(tokens), best, pairs[best], "".join(best))
 
     idx2word = dict()
     for word, idx in tokens.items():
