@@ -13,6 +13,8 @@ class Basedataset(Dataset):
             data = pickle.load(f)
             self.en_data, self.de_data = data["en_data"], data["de_data"]
         
+        print(f"total dataset : {len(self.en_data)}")
+
         #self.en_data = en_data
         #self.de_data = de_data
         self.en_word2idx = en_word2idx
@@ -54,15 +56,16 @@ class Batch_loader:
         while(1):
             seed = random.randint(0, length - 1)
             src, trg = self.dataset[seed] if ran else self.dataset[self.idx]
-            
+
+            if abs(len(src) - len(trg)) > 400:
+                print(src, trg)
+                print("skip")
+                self.idx += 1
+                continue
+
             sen_len += 1
             max_src = len(src) if max_src < len(src) else max_src
             max_trg = len(trg) if max_trg < len(trg) else max_trg
-
-            
-            if abs(len(src) - len(trg)) > 40:
-                self.idx += 1
-                continue
             
 
             #if there are so many tokens in one sentence --> break with empty batch

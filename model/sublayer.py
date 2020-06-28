@@ -44,7 +44,10 @@ class Encoding(nn.Module):
         self.device = device
 
         self.embed = nn.Embedding(vocab_size, emb_size, padding_idx = 0)
-        self.pos_emb = Pos_encoding(emb_size, max_length, self.device)
+        #self.pos_emb = Pos_encoding(emb_size, max_length, self.device)
+
+        self.pos_emb = nn.Embedding(max_length, emb_size)
+
         self.dropout = nn.Dropout(dropout)
         #self.scale = torch.sqrt(torch.FloatTensor([emb_size])).to(self.device)
 
@@ -55,8 +58,10 @@ class Encoding(nn.Module):
         batch= x.shape[0]
         seq = x.shape[1]
 
+        length = torch.arange(0, seq).repeat(batch, 1).cuda()
+
         #B, B_S, embed
-        output = self.pos_emb(x) + self.embed(x) * math.sqrt(self.emb_size)
+        output = self.pos_emb(length) + self.embed(x) * math.sqrt(self.emb_size)
         output = self.dropout(output)
         
         return output

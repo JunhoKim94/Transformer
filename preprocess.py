@@ -24,7 +24,7 @@ def word_encoding(word, word2idx):
         
     return encode
 
-def corpus_span(path, common):
+def spanning_data(path, common, corpus = False):
     '''
     data = batch x sentence 
     '''
@@ -42,7 +42,7 @@ def corpus_span(path, common):
 
             line[0] = clean_str(line[0])
             line[1] = clean_str(line[1])
-            if abs(len(line[0].split()) - len(line[1].split())) > 30:
+            if abs(len(line[0].split()) - len(line[1].split())) > 20:
                 continue
 
             en_data.append(line[0])
@@ -53,18 +53,22 @@ def corpus_span(path, common):
     
     print(len(en_data), len(de_data))
 
-    en_selected = en_collect.most_common(70000)
-    de_selected = de_collect.most_common(70000)
+    if corpus:
 
-    print(len(en_selected), len(de_selected))
+        en_selected = en_collect.most_common()
+        de_selected = de_collect.most_common()
 
-    en_word2idx, en_idx2word = bpe_corpus(en_selected, common)
-    de_word2idx, de_idx2word = bpe_corpus(de_selected, common)
+        print(len(en_selected), len(de_selected))
 
-    data = {"en_data" : (en_word2idx, en_idx2word), "de_data" : (de_word2idx, de_idx2word)}
+        en_word2idx, en_idx2word = bpe_corpus(en_selected, common)
+        de_word2idx, de_idx2word = bpe_corpus(de_selected, common)
 
-    with open("./corpus.pickle", 'wb') as f:
-        pickle.dump(data,f)
+        data = {"en_data" : (en_word2idx, en_idx2word), "de_data" : (de_word2idx, de_idx2word)}
+
+        with open("./corpus.pickle", 'wb') as f:
+            pickle.dump(data,f)
+    else:
+        data = None    
     
     pair = {"en_data" : en_data, "de_data" : de_data}
     with open("./data/split/data.pickle", "wb") as f:
@@ -136,10 +140,11 @@ def clean_str(string):
     string = re.sub(r"\(", " \( ", string) 
     string = re.sub(r"\)", " \) ", string) 
     string = re.sub(r"\?", " \? ", string) 
-    string = re.sub(r"\s{2,}", " ", string)    
-    return string.strip()
+    string = re.sub(r"\s{2,}", " ", string)
+
+    return string.strip().lower()
 
 if __name__ == "__main__":
-    data, en_data, de_data = corpus_span("./data/en-de_full.txt", 37000)
+    data, en_data, de_data = spanning_data("./data/en-de_full.txt", 37000)
     #en_word2idx, en_idx2word = data["en_data"]
     #de_word2idx, de_idx2word = data["de_data"]
