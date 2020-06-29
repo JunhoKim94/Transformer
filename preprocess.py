@@ -24,7 +24,7 @@ def word_encoding(word, word2idx):
         
     return encode
 
-def spanning_data(path, common, corpus = False):
+def spanning_data(path, common, save_path, corpus = False):
     '''
     data = batch x sentence 
     '''
@@ -39,6 +39,7 @@ def spanning_data(path, common, corpus = False):
         for line in tqdm(x):
             line = line[:-1]
             line = line.split("\t")
+            #print(line)
 
             line[0] = clean_str(line[0])
             line[1] = clean_str(line[1])
@@ -54,7 +55,6 @@ def spanning_data(path, common, corpus = False):
     print(len(en_data), len(de_data))
 
     if corpus:
-
         en_selected = en_collect.most_common()
         de_selected = de_collect.most_common()
 
@@ -71,7 +71,7 @@ def spanning_data(path, common, corpus = False):
         data = None    
     
     pair = {"en_data" : en_data, "de_data" : de_data}
-    with open("./data/split/data.pickle", "wb") as f:
+    with open(save_path, "wb") as f:
         pickle.dump(pair, f)
     
     return data, en_data, de_data
@@ -145,6 +145,6 @@ def clean_str(string):
     return string.strip().lower()
 
 if __name__ == "__main__":
-    data, en_data, de_data = spanning_data("./data/en-de_full.txt", 37000)
+    data, en_data, de_data = spanning_data("C:/Users/dilab/Desktop/training/train", 37000, save_path= "./data/ver2/train.pickle")
     #en_word2idx, en_idx2word = data["en_data"]
     #de_word2idx, de_idx2word = data["de_data"]

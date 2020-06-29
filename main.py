@@ -21,7 +21,10 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else 'cpu')
 #device = torch.device("cpu")
 print(torch.cuda.is_available())
 corpus_path = "./corpus.pickle"
-data_path = "./data/split/test.pickle"
+#data_path = "./data/split/test.pickle"
+data_path= "./data/new/data.pickle"
+test_path = "./data/new/test.pickle"
+data_path = "./data/ver2/train.pickle"
 
 en_word2idx, en_idx2word, de_word2idx, de_idx2word = call_data(corpus_path)
 
@@ -52,25 +55,27 @@ dataloader = Batch_loader(dataset, device, max_len, max_token)
 total = len(dataset)
 
 #model
-'''
+
 encoder = Encoder(en_vocab_size, emb_size , d_ff, dropout, max_len, h, Num, device)
 decoder = Decoder(de_vocab_size, emb_size , d_ff, dropout, max_len, h, Num, device)
-model = Transformer(encoder, decoder, PAD, device).to(device)
-'''
+model = Transformer(encoder, decoder, PAD, device, max_len).to(device)
 
+'''
 model = Transformer_fr(en_vocab_size, de_vocab_size, PAD, max_len, emb_size, device).to(device)
+'''
 
 #model.load_state_dict(torch.load("./model.pt", map_location= device))
 criterion = nn.CrossEntropyLoss()#(ignore_index = 0)
 #criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr = lr, betas = (0.9, 0.98), eps = 1e-9)
 
-test_dataset = Basedataset("./data/split/test.pickle", en_word2idx, de_word2idx, bpe)
-test_loader = Batch_loader(test_dataset, device, max_len, 2000)
+test_dataset = Basedataset(test_path,  en_word2idx, de_word2idx, bpe)
+test_loader = Batch_loader(test_dataset, device, max_len, 1500)
 
 #val_loader = Batch_loader(dataset, device, max_len, 2000)
 
 best_loss = 1e5 #3.8261873620196707
+best_bleu = 0
 st = time.time()
 
 step_loss = 0
@@ -124,7 +129,7 @@ for step in range(start + 1, start + steps+1):
         #print(score)
         current_loss = step_loss / step
 
-        if (step % 2000 == 0 and step >= 3000):
+        if (step % 2000 == 0 and step >= 20000):
         #if (step % 4000 == 0):
             model.eval()
             src, trg = test_loader.get_batch()
@@ -136,8 +141,9 @@ for step in range(start + 1, start + steps+1):
             print(f"bleu score : {score} | compare bleu : {score2}")
             #torch.save(model.state_dict(), "./current_step.pt")
 
-        if best_loss > current_loss:
-            best_loss = current_loss
-            torch.save(model.state_dict(), "./model.pt")
+            #if best_loss > current_loss:
+            if best_bleu < score:
+                best_bleu = score
+                torch.save(model.state_dict(), "./model.pt")
 
     del loss, y_pred, target, sr_batch, tr_batch

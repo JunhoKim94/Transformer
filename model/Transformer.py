@@ -89,7 +89,7 @@ class Transformer_fr(nn.Module):
         '''
 
         #in order to paper, max_seq = src seq + 300
-        max_seq = src.size(1)
+        max_seq = src.size(1) + 50
         batch = src.size(0)
 
         lengths = np.array([max_seq] * batch)

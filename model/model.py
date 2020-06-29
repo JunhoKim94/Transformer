@@ -15,7 +15,6 @@ class Encoder(nn.Module):
         self.attention = nn.ModuleList([Encoding_layer(emb_size, d_ff, dropout, h) for _ in range(Num)])
         self.layer_norm = nn.LayerNorm(emb_size)
 
-
     def forward(self, x, src_mask):
         '''
         x  = (B, S)
@@ -60,12 +59,13 @@ class Decoder(nn.Module):
         return output
 
 class Transformer(nn.Module):
-    def __init__(self, encoder, decoder, padd_idx, device):
+    def __init__(self, encoder, decoder, padd_idx, device, max_len):
         super(Transformer, self).__init__()
         self.encoder = encoder
         self.decoder = decoder
         self.padd_idx = padd_idx
         self.device = device
+        self.max_len = max_len
 
         self.BOS = 1
         self.EOS = 2
@@ -137,7 +137,7 @@ class Transformer(nn.Module):
         '''
 
         #in order to paper, max_seq = src seq + 300
-        max_seq = src.size(1)
+        max_seq = src.size(1) + 50 if src.size(1) + 50 < self.max_len else self.max_len
         batch = src.size(0)
 
         lengths = np.array([max_seq] * batch)
